@@ -1,0 +1,38 @@
+@startuml
+
+actor A
+participant MagicOnion as M
+actor B
+actor C
+
+== C が退室 ==
+
+note over C: 退室操作
+C -> M: 退室する("C")
+M -> A: C が退室しました通知
+M -> B: C が退室しました通知
+M -> C: 退室完了通知("C")
+
+note over C: 接続を終了
+C -> M: Hub を切断する
+
+== B が退室 ==
+
+note over B: 退室操作
+B -> M: 退室する("B")
+M -> A: B が退室しました通知
+M -> B: 退室完了通知("B")
+
+note over B: 接続を終了
+B -> M: Hub を切断する
+
+== A が退室 ==
+
+note over A: 退室操作
+A -> M: 退室する("A")
+M -> A: 退室完了通知("A")
+
+note over A: 接続を終了
+A -> M: Hub を切断する
+
+@enduml

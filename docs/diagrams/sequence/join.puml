@@ -1,0 +1,41 @@
+@startuml
+
+actor A
+participant MagicOnion as M
+actor B
+actor C
+
+== A が入室 ==
+
+note over A: サーバーへの接続開始
+A -> M: Hub に接続する
+M --> A: 接続完了
+
+note over A: ルームに入室
+A -> M: 入室する("A")
+M -> A: 入室完了通知("A")
+
+== B が入室 ==
+
+note over B: サーバーへの接続開始
+B -> M: Hub に接続する
+M --> B: 接続完了
+
+note over B: ルームに入室
+B -> M: 入室する("B")
+M -> A: B が入室しました通知
+M -> B: 入室完了通知("B")
+
+== C が入室 ==
+
+note over C: サーバーへの接続開始
+C -> M: Hub に接続する
+M --> C: 接続完了
+
+note over C: ルームに入室
+C -> M: 入室する("C")
+M -> A: C が入室しました通知
+M -> B: C が入室しました通知
+M -> C: 入室完了通知("C")
+
+@enduml
