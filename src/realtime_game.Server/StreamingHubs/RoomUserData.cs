@@ -6,5 +6,8 @@ namespace Server.StreamingHubs
     public class RoomUserData
     {
         public JoinedUser JoinedUser;
+
+        // 座標、回転を追加
+
     }
 }

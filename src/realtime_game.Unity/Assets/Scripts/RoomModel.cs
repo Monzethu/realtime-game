@@ -17,8 +17,14 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     //　ユーザー接続通知
     public Action<JoinedUser> OnJoinedUser { get; set; }
 
-    //　ユーザー退出通知
-    public Action<JoinedUser> OnLeftUser { get; set; }
+    // ユーザー切断通知
+    public Action<Guid> OnLeftUser { get; set; }
+
+    // ユーザー切断通知
+    public Action OnLeftUserAll { get; set; }
+
+    //// ユーザー位置情報
+    //public Action<位置, 回転> OnMoveCharacter { get; set; }
 
 
     //　MagicOnion接続処理
@@ -44,23 +50,20 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         DisconnectAsync();
     }
 
-    // 入室
-    public async UniTask<JoinedUser[]> JoinAsync(string roomName, int userId)
-    {
-        // サーバーから全ユーザーの情報を受け取る
-        JoinedUser[] users = await roomHub.JoinAsync(roomName, userId);
 
-        // 受け取った全ユーザーに対してイベント発火
+    //　入室
+    public async UniTask JoinAsync(string roomName, int userId)
+    {
+        JoinedUser[] users = await roomHub.JoinAsync(roomName, userId);
         foreach (var user in users)
         {
-            OnJoinedUser?.Invoke(user);
+            if (OnJoinedUser != null)
+            {
+                OnJoinedUser(user);
+            }
         }
-
-        // ★ 呼び出し元に返す
-        return users;
     }
-
-
+    
     //　入室通知 (IRoomHubReceiverインタフェースの実装)
     public void OnJoin(JoinedUser user)
     {
@@ -70,23 +73,43 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         }
     }
 
-    // ルーム退出
+    // 退室
     public async UniTask LeaveAsync()
     {
-        if (roomHub != null)
+        await roomHub.LeaveAsync();
+        Debug.Log("退室完了");
+
+        // 自分以外のオブジェクトを削除する
+        if (OnLeftUserAll != null)
         {
-            await roomHub.LeaveAsync();   // ★ サーバー側の LeaveAsync を呼ぶ
+            OnLeftUserAll();
         }
     }
 
-    //　退出通知
-    public void OnLeave(JoinedUser user)
+    // 退室通知 (IRoomHubReceiverインタフェースの実装)
+    public void OnLeave(Guid connectionId)
     {
         if (OnLeftUser != null)
         {
-            OnLeftUser(user);
+            OnLeftUser(connectionId);
         }
     }
 
-}
+    // 全員退室通知
+    public void OnLeaveAll()
+    {
+        OnLeftUserAll?.Invoke();
+    }
 
+    ////位置・回転を送信する
+    //public Task MoveAsync()
+    //{
+    //    // サーバーの関数呼び出し
+    //}
+
+    //void OnMove(接続ID, 位置, 回転)
+    //{
+    //    OnMoveCharacter(接続ID, 位置, 回転);
+    //}
+
+}

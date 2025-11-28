@@ -3,6 +3,7 @@ using realtime_game.Server.Models.Contexts;
 using realtime_game.Shared.Models.Entities;
 using realtime_game.Shared.Interfaces.StreamingHubs;
 using Shared.Interfaces.StreamingHubs;
+using UnityEngine;
 
 namespace Server.StreamingHubs
 {
@@ -68,27 +69,20 @@ namespace Server.StreamingHubs
             return Task.FromResult<Guid>(this.ConnectionId);
         }
 
+
         // ルームから退出
         public Task LeaveAsync()
         {
-            // ★ 退出するユーザーの情報を取得
-            if (!this.roomContext.RoomUserDataList.TryGetValue(this.ConnectionId, out var roomUserData))
-            {
-                return Task.CompletedTask; // そもそも居ない
-            }
+            //　退室したことを全メンバーに通知
+            this.roomContext.Group.All.OnLeave(this.ConnectionId);
 
-            var leavingUser = roomUserData.JoinedUser;
-
-            // ★ 全メンバーへ退出通知
-            this.roomContext.Group.All.OnLeave(leavingUser);
-
-            // ★ グループから削除
+            //　ルーム内のメンバーから自分を削除
             this.roomContext.Group.Remove(this.ConnectionId);
 
-            // ★ ルームデータから削除
+            //　ルームデータから退室したユーザーを削除
             this.roomContext.RoomUserDataList.Remove(this.ConnectionId);
 
-            // ★ ルームが空なら削除
+            // ルーム内にユーザーが一人もいなければルーム削除
             if (this.roomContext.RoomUserDataList.Count == 0)
             {
                 roomContextRepos.RemoveContext(this.roomContext.Name);
@@ -97,6 +91,24 @@ namespace Server.StreamingHubs
             return Task.CompletedTask;
         }
 
-    }
+        //// 移動
+        //public Task MoveAsync(Vector3 pos)
+        //{
+        //    // 位置情報を記録
+        //    this.roomContext.RoomUserDataList[this.ConnectionId].pos = pos;
 
+        //    // 移動情報を自分以外の全メンバーに通知
+        //    this.roomContext.Group.Except([this.ConnectionId]).OnMove(this.ConnectionId, pos);
+
+        //    return Task.CompletedTask;
+        //}
+
+        ////位置・回転をクライアントに通知する
+        //public async Task MoveAsync(位置, 回転)
+        //{
+        //    // グループストレージからRoomUserDataを取得して、位置と回転を保存
+        //    // ルーム内の他ユーザーに位置・回転の変更を送信
+        //}
+
+    }
 }

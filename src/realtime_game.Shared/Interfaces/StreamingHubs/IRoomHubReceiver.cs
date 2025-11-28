@@ -1,16 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using MagicOnion;
 using Shared.Interfaces.StreamingHubs;
+using UnityEngine;
 
 namespace realtime_game.Shared.Interfaces.StreamingHubs
 {
-    /// <summary>
-    /// サーバーからクライアントへの通知関連
-    /// </summary>
     public interface IRoomHubReceiver
     {
         // [クライアントに実装]
@@ -19,8 +13,10 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         // ユーザーの入室通知
         void OnJoin(JoinedUser user);
 
-        // ユーザー退出通知
-        void OnLeave(JoinedUser user);
-    }
+        // ユーザーの退室通知
+        void OnLeave(Guid connectionId);
 
+        ////位置・回転をクライアントに通知する
+        //void OnMove(接続ID, 位置, 回転);
+    }
 }
