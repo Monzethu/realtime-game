@@ -23,6 +23,7 @@ namespace Server.StreamingHubs
                 if (this.roomContext == null)
                 { // 無かったら生成
                     this.roomContext = roomContextRepos.CreateContext(roomName);
+                    Console.WriteLine("ルームが生成されました");
                 }
             }
 
@@ -41,6 +42,7 @@ namespace Server.StreamingHubs
             // ルームコンテキストにユーザー情報を登録
             var roomUserData = new RoomUserData() { JoinedUser = joinedUser };
             this.roomContext.RoomUserDataList[ConnectionId] = roomUserData;
+            Console.WriteLine($"ルームに参加しました。ID：{roomUserData.JoinedUser.UserData.Id}名前：{roomUserData.JoinedUser.UserData.Name}");
 
             // 自分以外のルーム参加者全員に、ユーザーの入室通知を送信
             this.roomContext.Group.Except([this.ConnectionId]).OnJoin(joinedUser);
@@ -60,8 +62,13 @@ namespace Server.StreamingHubs
         // 切断時の処理
         protected override ValueTask OnDisconnected()
         {
-            return default;
+            if (roomContext != null)
+            {
+                LeaveAsync();
+            }
+            return CompletedTask;
         }
+
 
         // 接続ID取得
         public Task<Guid> GetConnectionId()
@@ -75,6 +82,7 @@ namespace Server.StreamingHubs
         {
             //　退室したことを全メンバーに通知
             this.roomContext.Group.All.OnLeave(this.ConnectionId);
+            Console.WriteLine($"ルームに参加しました。ID：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Id}名前：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Name}");
 
             //　ルーム内のメンバーから自分を削除
             this.roomContext.Group.Remove(this.ConnectionId);
@@ -86,29 +94,27 @@ namespace Server.StreamingHubs
             if (this.roomContext.RoomUserDataList.Count == 0)
             {
                 roomContextRepos.RemoveContext(this.roomContext.Name);
+                Console.WriteLine("ルームが削除されました");
             }
 
             return Task.CompletedTask;
         }
 
-        //// 移動
-        //public Task MoveAsync(Vector3 pos)
-        //{
-        //    // 位置情報を記録
-        //    this.roomContext.RoomUserDataList[this.ConnectionId].pos = pos;
+        // 移動
+        public Task MoveAsync(Vector3 pos, Quaternion rot)
+        {
+            // 位置情報を記録
+            //this.roomContext.RoomUserDataList[this.ConnectionId].pos = pos;
 
-        //    // 移動情報を自分以外の全メンバーに通知
-        //    this.roomContext.Group.Except([this.ConnectionId]).OnMove(this.ConnectionId, pos);
+            var userData = this.roomContext.RoomUserDataList[this.ConnectionId];
+            userData.Position = pos;
+            userData.Rotation = rot;
 
-        //    return Task.CompletedTask;
-        //}
+            // 自分以外の全メンバーに通知
+            this.roomContext.Group.Except(new Guid[] { this.ConnectionId })
+                .OnMove(this.ConnectionId, pos, rot);
 
-        ////位置・回転をクライアントに通知する
-        //public async Task MoveAsync(位置, 回転)
-        //{
-        //    // グループストレージからRoomUserDataを取得して、位置と回転を保存
-        //    // ルーム内の他ユーザーに位置・回転の変更を送信
-        //}
-
+            return Task.CompletedTask;
+        }
     }
 }

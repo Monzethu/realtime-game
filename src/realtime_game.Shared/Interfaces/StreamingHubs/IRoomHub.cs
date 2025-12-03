@@ -20,9 +20,9 @@ namespace Shared.Interfaces.StreamingHubs
         Task LeaveAsync();
 
         // 接続ID取得
-        public Task<Guid> GetConnectionId();
+        Task<Guid> GetConnectionId();
 
-        ////位置・回転をサーバーに送信する
-        //Task MoveAsync(位置, 回転);
+        // 位置・回転をサーバーに送信する
+        Task MoveAsync(Vector3 pos, Quaternion rot);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Shared.Interfaces.StreamingHubs;
+using UnityEngine;
 
 namespace Server.StreamingHubs
 {
@@ -7,7 +8,10 @@ namespace Server.StreamingHubs
     {
         public JoinedUser JoinedUser;
 
-        // 座標、回転を追加
-
+        // 座標
+        public Vector3 Position;
+        
+        // 回転
+        public Quaternion Rotation;
     }
 }

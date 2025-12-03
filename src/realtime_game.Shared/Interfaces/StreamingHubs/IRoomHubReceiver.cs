@@ -16,7 +16,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         // ユーザーの退室通知
         void OnLeave(Guid connectionId);
 
-        ////位置・回転をクライアントに通知する
-        //void OnMove(接続ID, 位置, 回転);
+        // 位置・回転をクライアントに通知する
+        void OnMove(Guid connectionId, Vector3 pos, Quaternion rot);
     }
 }

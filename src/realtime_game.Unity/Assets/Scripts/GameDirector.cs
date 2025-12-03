@@ -7,41 +7,91 @@ using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening;
+using UnityEngine.TextCore.Text;
+
 
 public class GameDirector : MonoBehaviour
 {
     [SerializeField] GameObject characterPrefab;
+    GameObject character;
     Dictionary<Guid, GameObject> characterList = new Dictionary<Guid, GameObject>();
 
     RoomModel roomModel;
     UserModel userModel;
 
-    int myUserId = 1;
+    int myUserId;
     User myself;
 
     [SerializeField] InputField roomNameInput;
+    [SerializeField] InputField userIdInput;
     [SerializeField] Button joinButton;
     [SerializeField] Button leaveButton;
+
+    bool isJoin;
+
+    float timer;
 
     async void Start()
     {
         roomModel = GetComponent<RoomModel>();
         userModel = GetComponent<UserModel>();
 
+        character = Instantiate(characterPrefab);
+        Debug.Log(character.transform.position);
+
+        isJoin = false;
+        timer = 0;
+
         //ユーザーが入室した時にOnJoinedUserメソッドを実行するよう、モデルに登録しておく
         roomModel.OnJoinedUser += this.OnJoinedUser;
         // ユーザーが退室した時にOnLeftUserメソッドを実行できるよう、モデルに登録しておく
         roomModel.OnLeftUser += this.OnLeftUser;
-        // ユーザーが退室した時にOnLeftUserAllメソッドを実行できるよう、モデルに登録しておく
-        roomModel.OnLeftUserAll += this.OnLeftUserAll;
-        //// ユーザーが移動・回転したときにOnMoveCharacterメソッドを実行できるよう、モデルに登録しておく
-        //roomModel.OnMoveCharacter += OnMoveCharacter;
+        // ユーザーが移動・回転したときにOnMoveCharacterメソッドを実行できるよう、モデルに登録しておく
+        roomModel.OnMoveCharacter += OnMoveCharacter;
 
 
         //接続
         Debug.Log("ConnectAsync 開始");
         await roomModel.ConnectAsync();
         Debug.Log("ConnectAsync 完了");
+
+        // ボタン登録
+        joinButton.onClick.AddListener(OnJoinButtonPressed);
+        leaveButton.onClick.AddListener(OnLeaveButtonPressed);
+    }
+
+    async void Update()
+    {
+        timer += Time.deltaTime;
+
+        if (timer >= 0.1f)
+        {
+            if (isJoin)
+            {
+                timer = 0;
+
+                // 自分の位置と回転をサーバーに送信
+                await roomModel.MoveAsync(character.transform.position, character.transform.rotation);
+            }
+        }
+    }
+
+    // Join ボタン
+    async void OnJoinButtonPressed()
+    {
+        Debug.Log("Joinボタンが押された！");
+
+        if (string.IsNullOrWhiteSpace(roomNameInput.text))
+        {
+            Debug.Log("ルーム名が空です");
+            return;
+        }
+
+        myUserId = int.Parse(userIdInput.text);
+
+        
+        Debug.Log("JoinRoom 呼ばれた: " + roomNameInput.text);
         try
         {
             // ユーザー情報を取得
@@ -53,47 +103,25 @@ public class GameDirector : MonoBehaviour
             Debug.LogException(e);
         }
 
-        // ボタン登録
-        joinButton.onClick.AddListener(OnJoinButtonPressed);
-        leaveButton.onClick.AddListener(OnLeaveButtonPressed);
-    }
-
-    // Join ボタン
-    private void OnJoinButtonPressed()
-    {
-        Debug.Log("Joinボタンが押された！");
-
-        if (string.IsNullOrWhiteSpace(roomNameInput.text))
-        {
-            Debug.Log("ルーム名が空です");
-            return;
-        }
-
-        JoinRoom(roomNameInput.text);
-    }
-
-    // Leave ボタン
-    private void OnLeaveButtonPressed()
-    {
-        LeaveRoom();
-    }
-
-    // 入室
-    public async void JoinRoom(string roomName)
-    {
-        Debug.Log("JoinRoom 呼ばれた: " + roomName);
-
+        // 入室
         try
         {
             Debug.Log("JoinAsync 開始");
-            await roomModel.JoinAsync(roomName, 1);
+            await roomModel.JoinAsync(roomNameInput.text, myUserId);
             Debug.Log("JoinAsync 完了");
+            isJoin = true;
         }
         catch (Exception e)
         {
             Debug.Log("JoinAsync 失敗");
             Debug.LogException(e);
         }
+    }
+
+    // Leave ボタン
+    private void OnLeaveButtonPressed()
+    {
+        LeaveRoom();
     }
 
     // ユーザーが入室した時の処理
@@ -106,7 +134,8 @@ public class GameDirector : MonoBehaviour
         Debug.Log("=======================");
 
         // すでに表示済みのユーザーは追加しない
-        if (characterList.ContainsKey(user.ConnectionId))
+        // 自分は追加しない
+        if (characterList.ContainsKey(user.ConnectionId) || user.UserData.Id == myUserId)
         {
             return;
         }
@@ -115,11 +144,7 @@ public class GameDirector : MonoBehaviour
         characterObject.transform.position = new Vector3(0, 0, 0); // 配置位置設定
         characterObject.name = "Player_" + user.UserData.Id;
 
-        // 自分なら操作できるようにする
-        if (user.UserData.Id == myUserId)
-        {
-            characterObject.AddComponent<PlayerMover>();
-        }
+        characterObject.GetComponent<PlayerContoroller>().enabled = false;
 
         characterList[user.ConnectionId] = characterObject;  //フィールドで保持
     }
@@ -127,24 +152,14 @@ public class GameDirector : MonoBehaviour
     // 退室処理
     public async void LeaveRoom()
     {
-        if (roomNameInput == null || string.IsNullOrWhiteSpace(roomNameInput.text))
+        // 自分以外のオブジェクトを削除
+        foreach (Guid connectionId in characterList.Keys.ToArray())
         {
-            Debug.Log("ルーム名が空です");
-            // ルーム名が入力されていない場合は何もしない
-            return;
-        }
-
-        // 自分がルームを抜けるので、自分以外のオブジェクトを削除
-        List<Guid> connectionIdList = characterList.Keys.ToList();
-        foreach (Guid connectionId in connectionIdList)
-        {
-            // 自分のPlayerは削除しない
-            if (characterList[connectionId].GetComponent<PlayerMover>() != null)
-                continue;
-
             Destroy(characterList[connectionId]);
             characterList.Remove(connectionId);
         }
+
+        isJoin=false;
 
         // 退室
         await roomModel.LeaveAsync();
@@ -163,21 +178,27 @@ public class GameDirector : MonoBehaviour
         characterList.Remove(connectionId); // リストから対象のデータを削除
     }
 
-    // 自分が退室した時の処理
-    private void OnLeftUserAll()
+    // 自分以外のユーザーの移動を反映
+    void OnMoveCharacter(Guid connectionId, Vector3 pos, Quaternion rotation)
     {
-        // 自分以外のオブジェクトを削除する
-        List<Guid> connectionIdList = characterList.Keys.ToList();
-        foreach (Guid connectionId in connectionIdList)
+        // いない人は移動できない
+        if (!characterList.ContainsKey(connectionId))
         {
-            // 自分のPlayerは削除しない
-            if (characterList[connectionId].GetComponent<PlayerMover>() != null)
-                continue;
-
-            // 一人分の退室処理
-            OnLeftUser(connectionId);
+            return;
         }
+
+        var obj = characterList[connectionId].transform;
+
+        // 既存Tweenを止める
+        obj.DOKill();
+
+        // 回転反映
+        obj.rotation = rotation;
+
+        // DOTween で滑らかに移動
+        obj.DOMove(pos, 0.1f).SetEase(Ease.Linear);
     }
+
 
     //// 自分以外のユーザーの移動を反映
     //private void OnMoveUser(Guid connectionId, Vector3 pos, Quaternion quaternion)
@@ -191,14 +212,6 @@ public class GameDirector : MonoBehaviour
     //    // DOTweenを使うことでなめらかに動く！
     //    //characterList[connectionId].transform.DOMove(pos, 0.1f);
     //    characterList[connectionId].transform.position = pos;
-    //}
-
-    //void OnMoveCharacter(接続ID, 位置, 回転)
-    //{
-    //    // characterListから対象のGameObjectを取得
-    //    // 位置・回転を反映
-
-
     //}
 
 }

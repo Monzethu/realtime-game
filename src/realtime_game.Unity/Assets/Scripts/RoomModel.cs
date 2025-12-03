@@ -5,6 +5,7 @@ using realtime_game.Shared.Interfaces.StreamingHubs;
 using Shared.Interfaces.StreamingHubs;
 using System;
 using UnityEngine;
+using System.Threading.Tasks;
 
 public class RoomModel : BaseModel, IRoomHubReceiver
 {
@@ -20,11 +21,8 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     // ユーザー切断通知
     public Action<Guid> OnLeftUser { get; set; }
 
-    // ユーザー切断通知
-    public Action OnLeftUserAll { get; set; }
-
-    //// ユーザー位置情報
-    //public Action<位置, 回転> OnMoveCharacter { get; set; }
+    // ユーザー位置情報
+    public Action<Guid, Vector3, Quaternion> OnMoveCharacter { get; set; }
 
 
     //　MagicOnion接続処理
@@ -55,15 +53,16 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public async UniTask JoinAsync(string roomName, int userId)
     {
         JoinedUser[] users = await roomHub.JoinAsync(roomName, userId);
-        foreach (var user in users)
+
+        if (OnJoinedUser != null)
         {
-            if (OnJoinedUser != null)
+            foreach (var user in users)
             {
                 OnJoinedUser(user);
             }
         }
     }
-    
+
     //　入室通知 (IRoomHubReceiverインタフェースの実装)
     public void OnJoin(JoinedUser user)
     {
@@ -78,12 +77,6 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     {
         await roomHub.LeaveAsync();
         Debug.Log("退室完了");
-
-        // 自分以外のオブジェクトを削除する
-        if (OnLeftUserAll != null)
-        {
-            OnLeftUserAll();
-        }
     }
 
     // 退室通知 (IRoomHubReceiverインタフェースの実装)
@@ -95,21 +88,18 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         }
     }
 
-    // 全員退室通知
-    public void OnLeaveAll()
+    //位置・回転を送信する
+    public　async UniTask MoveAsync(Vector3 position, Quaternion rotation)
     {
-        OnLeftUserAll?.Invoke();
+        // サーバーの関数呼び出し
+        await roomHub.MoveAsync(position, rotation);
     }
 
-    ////位置・回転を送信する
-    //public Task MoveAsync()
-    //{
-    //    // サーバーの関数呼び出し
-    //}
-
-    //void OnMove(接続ID, 位置, 回転)
-    //{
-    //    OnMoveCharacter(接続ID, 位置, 回転);
-    //}
-
+    public void OnMove(Guid connectionId, Vector3 position, Quaternion rotation)
+    {
+        if (OnMoveCharacter != null)
+        {
+            OnMoveCharacter(connectionId, position, rotation);
+        }
+    }
 }
