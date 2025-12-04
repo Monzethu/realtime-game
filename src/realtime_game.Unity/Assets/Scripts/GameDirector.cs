@@ -4,11 +4,9 @@ using Shared.Interfaces.StreamingHubs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
-using UnityEngine.TextCore.Text;
 
 
 public class GameDirector : MonoBehaviour
@@ -198,20 +196,4 @@ public class GameDirector : MonoBehaviour
         // DOTween で滑らかに移動
         obj.DOMove(pos, 0.1f).SetEase(Ease.Linear);
     }
-
-
-    //// 自分以外のユーザーの移動を反映
-    //private void OnMoveUser(Guid connectionId, Vector3 pos, Quaternion quaternion)
-    //{
-    //    // いない人は移動できない
-    //    if (!characterList.ContainsKey(connectionId))
-    //    {
-    //        return;
-    //    }
-
-    //    // DOTweenを使うことでなめらかに動く！
-    //    //characterList[connectionId].transform.DOMove(pos, 0.1f);
-    //    characterList[connectionId].transform.position = pos;
-    //}
-
 }
