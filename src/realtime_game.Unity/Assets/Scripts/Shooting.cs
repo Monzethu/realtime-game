@@ -4,38 +4,50 @@ using UnityEngine;
 
 public class Shooting : MonoBehaviour
 {
-
-    public GameObject bulletPrefab;
-    public float shotSpeed;
-    public int shotCount = 30;
+    [SerializeField] private GameObject bulletPrefab;
+    [SerializeField] private float shotSpeed;
+    [SerializeField] private int bulletAmount;
+    [SerializeField] private int maxBullet;
     private float shotInterval;
+
+    [SerializeField] public Transform bulletsParent;
+    [SerializeField] public Transform shootingTransform;
+    private Transform cameraTransform;
+
+    private void Awake()
+    {
+        bulletAmount=maxBullet;
+    }
+
+    private void Start()
+    {
+        cameraTransform=Camera.main.transform;
+    }
 
     void Update()
     {
         if (Input.GetKey(KeyCode.Mouse0))
         {
+            shotInterval += Time.deltaTime;
 
-            shotInterval += 1;
-
-            if (shotInterval % 5 == 0 && shotCount > 0)
+            if (shotInterval >= 0.05f && bulletAmount > 0)
             {
-                shotCount -= 1;
+                bulletAmount -= 1;
+                shotInterval = 0;
 
-                GameObject bullet = (GameObject)Instantiate(bulletPrefab, transform.position, Quaternion.Euler(transform.parent.eulerAngles.x, transform.parent.eulerAngles.y, 0));
+                // 弾の生成（カメラの向いている方向に発射）
+                GameObject bullet =Instantiate(bulletPrefab, cameraTransform.position, Quaternion.Euler(cameraTransform.eulerAngles.x, cameraTransform.eulerAngles.y, 0), bulletsParent);
                 Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
-                bulletRb.AddForce(transform.forward * shotSpeed);
+                bulletRb.AddForce(cameraTransform.forward * shotSpeed);
 
-                //射撃されてから3秒後に銃弾のオブジェクトを破壊する.
-
+                //射撃されてから3秒後に銃弾のオブジェクトを破壊する
                 Destroy(bullet, 3.0f);
             }
 
         }
         else if (Input.GetKeyDown(KeyCode.R))
         {
-            shotCount = 30;
-
+            bulletAmount = maxBullet;
         }
-
     }
 }

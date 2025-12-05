@@ -8,7 +8,7 @@ public class PlayerContoroller : MonoBehaviour
 {
     Rigidbody rb;
     
-    public float moveSpeed = 5f;           // 移動速度
+    [SerializeField] private float moveSpeed = 5f;           // 移動速度
     float jumpPower=5f;    // ジャンプ力
 
     bool isGround;        // 地面に着地しているかどうかのフラグ変数
