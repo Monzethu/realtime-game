@@ -16,12 +16,12 @@ public class Shooting : MonoBehaviour
 
     private void Awake()
     {
-        bulletAmount=maxBullet;
+        bulletAmount = maxBullet;
     }
 
     private void Start()
     {
-        cameraTransform=Camera.main.transform;
+        cameraTransform = Camera.main.transform;
     }
 
     void Update()
@@ -36,7 +36,7 @@ public class Shooting : MonoBehaviour
                 shotInterval = 0;
 
                 // ’e‚Ì¶¬iƒJƒƒ‰‚ÌŒü‚¢‚Ä‚¢‚é•ûŒü‚É”­Ëj
-                GameObject bullet =Instantiate(bulletPrefab, cameraTransform.position, Quaternion.Euler(cameraTransform.eulerAngles.x, cameraTransform.eulerAngles.y, 0), bulletsParent);
+                GameObject bullet = Instantiate(bulletPrefab, cameraTransform.position + cameraTransform.forward*0.5f, Quaternion.Euler(cameraTransform.eulerAngles.x, cameraTransform.eulerAngles.y, 0), bulletsParent);
                 Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
                 bulletRb.AddForce(cameraTransform.forward * shotSpeed);
 

@@ -54,6 +54,7 @@ public class PlayerContoroller : MonoBehaviour
         }
     }
 
+    // 地面についたら（Floorについてたら）
     private void OnCollisionEnter(Collision collision)
     {
         if (collision.gameObject.CompareTag("floor"))
@@ -62,6 +63,7 @@ public class PlayerContoroller : MonoBehaviour
         }
     }
 
+    // 地面からはなれたら（Floorからはなれたら）
     private void OnCollisionExit(Collision collision)
     {
         if (collision.gameObject.CompareTag("floor"))

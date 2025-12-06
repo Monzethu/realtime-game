@@ -25,6 +25,7 @@ public class PlayerPOV : MonoBehaviour
     {
         // マウス入力の取得
         float mouseX = Input.GetAxis("Mouse X") * sensitivity;  // 横のマウス移動量を取得し、感度で調整
+        //Debug.Log(mouseX);
         float mouseY = Input.GetAxis("Mouse Y") * sensitivity;  // 縦のマウス移動量を取得し、感度で調整
 
         // Player（体）の回転（左右）
