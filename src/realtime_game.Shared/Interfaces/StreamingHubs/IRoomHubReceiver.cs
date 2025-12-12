@@ -18,5 +18,8 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
 
         // 位置・回転をクライアントに通知する
         void OnMove(Guid connectionId, Vector3 pos, Quaternion rot);
+
+        // 撃った情報を送る
+        void OnShoot(Guid shooterId, Vector3 pos, Quaternion rot, Vector3 velocity);
     }
 }

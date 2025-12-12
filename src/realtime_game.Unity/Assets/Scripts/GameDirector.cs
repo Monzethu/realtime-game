@@ -30,13 +30,21 @@ public class GameDirector : MonoBehaviour
 
     float timer;
 
+    private bool isShowMouseCursor;
+
+    private void Awake()
+    {
+        HideMouseCursor();
+        isShowMouseCursor = false;
+    }
+
     async void Start()
     {
         roomModel = GetComponent<RoomModel>();
         userModel = GetComponent<UserModel>();
 
         character = Instantiate(characterPrefab);
-        Debug.Log(character.transform.position);
+        //Debug.Log(character.transform.position);
 
         isJoin = false;
         timer = 0;
@@ -73,6 +81,44 @@ public class GameDirector : MonoBehaviour
                 await roomModel.MoveAsync(character.transform.position, character.transform.rotation);
             }
         }
+
+        // Ecapeを押したとき
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            isShowMouseCursor = isShowMouseCursor ? false : true;
+            if (isShowMouseCursor)
+            {
+                ShowMouseCursor();
+                Debug.Log("カーソルを表示");
+            }
+            else
+            {
+                HideMouseCursor();
+                Debug.Log("カーソルを非表示");
+            }
+        }
+    }
+
+    /// <summary>
+    /// カーソル非表示
+    /// </summary>
+    public void HideMouseCursor()
+    {
+        // カーソルを画面中央にロックする
+        Cursor.lockState = CursorLockMode.Locked;
+        // カーソル非表示
+        Cursor.visible = false;
+    }
+
+    /// <summary>
+    /// カーソル表示
+    /// </summary>
+    public void ShowMouseCursor()
+    {
+        // カーソルのロックを解除
+        Cursor.lockState = CursorLockMode.None;
+        // カーソル表示
+        Cursor.visible = true;
     }
 
     // Join ボタン
@@ -139,10 +185,12 @@ public class GameDirector : MonoBehaviour
         }
 
         GameObject characterObject = Instantiate(characterPrefab);  //インスタンス生成
+        characterObject.GetComponent<PlayerContoroller>().cam.depth = -10; // 生成したPlayerのカメラの優先度を下げる
         characterObject.transform.position = new Vector3(0, 0, 0); // 配置位置設定
         characterObject.name = "Player_" + user.UserData.Id;
 
         characterObject.GetComponent<PlayerContoroller>().enabled = false;
+        characterObject.GetComponent<PlayerPOV>().enabled = false;
 
         characterList[user.ConnectionId] = characterObject;  //フィールドで保持
     }

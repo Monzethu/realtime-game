@@ -13,7 +13,12 @@ public class PlayerContoroller : MonoBehaviour
 
     bool isGround;        // 地面に着地しているかどうかのフラグ変数
 
-    // JoyStickで操作させたい
+    [SerializeField] public Camera cam;
+
+    float speed = 0.1f; // スピード係数（大きいと瞬間移動するので注意！）
+    FloatingJoystick joystick;
+
+    // HPの実装
 
     private void Awake()
     {
@@ -24,6 +29,10 @@ public class PlayerContoroller : MonoBehaviour
     void Start()
     {
         rb= GetComponent<Rigidbody>();
+
+        // ジョイスティックの情報を取得
+        joystick = GameObject.Find("Floating Joystick").GetComponent<FloatingJoystick> ();
+
     }
 
     // Update is called once per frame
@@ -36,12 +45,22 @@ public class PlayerContoroller : MonoBehaviour
     // 移動
     private void Move()
     {
-        // 入力の取得
-        float h = Input.GetAxis("Horizontal") * moveSpeed * Time.deltaTime;
-        float v = Input.GetAxis("Vertical") * moveSpeed * Time.deltaTime;
+        // WASD / キーボード入力
+        float h = Input.GetAxis("Horizontal");
+        float v = Input.GetAxis("Vertical");
 
-        transform.Translate(h, 0, v);
+        // ジョイスティック入力
+        float jh = joystick != null ? joystick.Horizontal : 0f;
+        float jv = joystick != null ? joystick.Vertical : 0f;
+
+        // 入力を足す
+        float moveX = (h + jh) * moveSpeed * Time.deltaTime;
+        float moveZ = (v + jv) * moveSpeed * Time.deltaTime;
+
+        // 実際の移動
+        transform.Translate(moveX, 0, moveZ);
     }
+
 
     void Jump()
     {

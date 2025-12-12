@@ -24,6 +24,9 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     // ユーザー位置情報
     public Action<Guid, Vector3, Quaternion> OnMoveCharacter { get; set; }
 
+    // 弾の発射
+    public Action<Guid, Vector3, Quaternion, Vector3> OnBulletReceived { get; set; }
+
 
     //　MagicOnion接続処理
     public async UniTask ConnectAsync()
@@ -102,4 +105,13 @@ public class RoomModel : BaseModel, IRoomHubReceiver
             OnMoveCharacter(connectionId, position, rotation);
         }
     }
+
+    public void OnShoot(Guid shooterId, Vector3 pos, Quaternion rot, Vector3 velocity)
+    {
+        if (OnBulletReceived != null)
+        {
+            OnBulletReceived(shooterId, pos, rot, velocity);
+        }
+    }
+
 }

@@ -4,6 +4,7 @@ using realtime_game.Shared.Models.Entities;
 using realtime_game.Shared.Interfaces.StreamingHubs;
 using Shared.Interfaces.StreamingHubs;
 using UnityEngine;
+using Cysharp.Runtime.Multicast;
 
 namespace Server.StreamingHubs
 {
@@ -82,7 +83,7 @@ namespace Server.StreamingHubs
         {
             //　退室したことを全メンバーに通知
             this.roomContext.Group.All.OnLeave(this.ConnectionId);
-            Console.WriteLine($"ルームに参加しました。ID：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Id}名前：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Name}");
+            Console.WriteLine($"ルームに退出しました。ID：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Id}名前：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Name}");
 
             //　ルーム内のメンバーから自分を削除
             this.roomContext.Group.Remove(this.ConnectionId);
@@ -111,8 +112,17 @@ namespace Server.StreamingHubs
             userData.Rotation = rot;
 
             // 自分以外の全メンバーに通知
-            this.roomContext.Group.Except(new Guid[] { this.ConnectionId })
+            this.roomContext.Group.Except([ this.ConnectionId ])
                 .OnMove(this.ConnectionId, pos, rot);
+
+            return Task.CompletedTask;
+        }
+
+        public Task ShootAsync(Vector3 pos, Quaternion rot, Vector3 velocity)
+        {
+            this.roomContext.Group
+                .Except(this.ConnectionId)
+                .OnShoot(this.ConnectionId, pos, rot, velocity);
 
             return Task.CompletedTask;
         }

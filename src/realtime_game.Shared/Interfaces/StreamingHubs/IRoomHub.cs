@@ -24,5 +24,8 @@ namespace Shared.Interfaces.StreamingHubs
 
         // 位置・回転をサーバーに送信する
         Task MoveAsync(Vector3 pos, Quaternion rot);
+
+        // 撃った情報を送る
+        Task ShootAsync(Vector3 pos, Quaternion rot, Vector3 velocity);
     }
 }

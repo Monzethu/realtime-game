@@ -12,14 +12,6 @@ public class PlayerPOV : MonoBehaviour
     // 演算用変数
     private float rotationX = 0f;       // 縦方向の回転角度（首の回転）
 
-    // ゲーム開始時に呼ばれる
-    void Start()
-    {
-        // カーソルを非表示＆ロック
-        Cursor.lockState = CursorLockMode.Locked;   // カーソルを画面中央に固定
-        Cursor.visible = false;                     // カーソルを非表示にする
-    }
-
     // 毎フレーム実行される
     void Update()
     {

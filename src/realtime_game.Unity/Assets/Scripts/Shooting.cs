@@ -10,7 +10,7 @@ public class Shooting : MonoBehaviour
     [SerializeField] private int maxBullet;
     private float shotInterval;
 
-    [SerializeField] public Transform bulletsParent;
+    private Transform bulletsParent;
     [SerializeField] public Transform shootingTransform;
     private Transform cameraTransform;
 
@@ -22,6 +22,7 @@ public class Shooting : MonoBehaviour
     private void Start()
     {
         cameraTransform = Camera.main.transform;
+        bulletsParent = GameObject.Find("BulletsParent").GetComponent<Transform>();
     }
 
     void Update()
