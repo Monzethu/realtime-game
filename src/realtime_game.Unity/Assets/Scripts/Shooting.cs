@@ -35,11 +35,6 @@ public class Shooting : MonoBehaviour
 
     private void Update()
     {
-        if (roomModel == null)
-        {
-            return;
-        }
-
         if (Input.GetKey(KeyCode.Mouse0))
         {
             shotInterval += Time.deltaTime;
@@ -59,6 +54,7 @@ public class Shooting : MonoBehaviour
         }
     }
 
+
     /// <summary>
     /// 自分の弾をローカルで生成して、MagicOnion で同期
     /// </summary>
@@ -68,18 +64,26 @@ public class Shooting : MonoBehaviour
             return;
 
         Vector3 spawnPos = cameraTransform.position + cameraTransform.forward * 0.5f;
-        Quaternion rot = Quaternion.Euler(cameraTransform.eulerAngles.x, cameraTransform.eulerAngles.y, 0f);
+        Quaternion rot = Quaternion.Euler(
+            cameraTransform.eulerAngles.x,
+            cameraTransform.eulerAngles.y,
+            0f
+        );
         Vector3 velocity = cameraTransform.forward * shotSpeed;
 
-        // ローカル生成（見た目と物理挙動）
+        // ローカル弾は常に生成（待機中の試し打ち可能）
         GameObject bullet = Instantiate(bulletPrefab, spawnPos, rot, bulletsParent);
         Rigidbody rb = bullet.GetComponent<Rigidbody>();
         if (rb != null) rb.velocity = velocity;
         Destroy(bullet, 3f);
 
-        // MagicOnion 経由で他プレイヤーに通知
-        roomModel?.ShootAsync(spawnPos, rot, velocity).Forget();
+        // ルームに入ってたら同期
+        if (roomModel != null && roomModel.IsJoined)
+        {
+            roomModel.ShootAsync(spawnPos, rot, velocity).Forget();
+        }
     }
+
 
     /// <summary>
     /// 他プレイヤーの弾を受信して生成

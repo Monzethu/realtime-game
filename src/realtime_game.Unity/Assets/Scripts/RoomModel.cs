@@ -27,6 +27,9 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     // ’e‚Ì”­Ë
     public Action<Guid, Vector3, Quaternion, Vector3> OnBulletReceived { get; set; }
 
+    // ƒ‹[ƒ€‚ÉÚ‘±‚µ‚Ä‚é‚©‚Ç‚¤‚©
+    public bool IsJoined { get; private set; }
+
 
     //@MagicOnionÚ‘±ˆ—
     public async UniTask ConnectAsync()
@@ -40,6 +43,8 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     //@MagicOnionØ’fˆ—
     public async UniTask DisconnectAsync()
     {
+        IsJoined = false;
+
         if (roomHub != null) await roomHub.DisposeAsync();
         if (channel != null) await channel.ShutdownAsync();
         roomHub = null; channel = null;
@@ -56,6 +61,8 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public async UniTask JoinAsync(string roomName, int userId)
     {
         JoinedUser[] users = await roomHub.JoinAsync(roomName, userId);
+
+        IsJoined = true;
 
         if (OnJoinedUser != null)
         {
@@ -79,6 +86,7 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public async UniTask LeaveAsync()
     {
         await roomHub.LeaveAsync();
+        IsJoined = false;
         Debug.Log("‘ŞºŠ®—¹");
     }
 
