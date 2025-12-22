@@ -1,18 +1,20 @@
-using System.Collections;
-using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using System;
 using UnityEngine;
 
 public class Shooting : MonoBehaviour
 {
     [SerializeField] private GameObject bulletPrefab;
-    [SerializeField] private float shotSpeed;
-    [SerializeField] private int bulletAmount;
-    [SerializeField] private int maxBullet;
+    [SerializeField] private float shotSpeed = 30f;
+
+    [SerializeField] private int maxBullet = 30;
+    private int bulletAmount;
     private float shotInterval;
 
     private Transform bulletsParent;
-    [SerializeField] public Transform shootingTransform;
     private Transform cameraTransform;
+
+    [SerializeField] private RoomModel roomModel;
 
     private void Awake()
     {
@@ -22,33 +24,78 @@ public class Shooting : MonoBehaviour
     private void Start()
     {
         cameraTransform = Camera.main.transform;
-        bulletsParent = GameObject.Find("BulletsParent").GetComponent<Transform>();
+        bulletsParent = GameObject.Find("BulletsParent")?.transform;
     }
 
-    void Update()
+    public void SetRoomModel(RoomModel model)
     {
+        roomModel = model;
+        roomModel.OnBulletReceived += OnOtherPlayerShoot;
+    }
+
+    private void Update()
+    {
+        if (roomModel == null)
+        {
+            return;
+        }
+
         if (Input.GetKey(KeyCode.Mouse0))
         {
             shotInterval += Time.deltaTime;
 
             if (shotInterval >= 0.05f && bulletAmount > 0)
             {
-                bulletAmount -= 1;
-                shotInterval = 0;
+                bulletAmount--;
+                shotInterval = 0f;
 
-                // ’e‚Ì¶¬iƒJƒƒ‰‚ÌŒü‚¢‚Ä‚¢‚é•ûŒü‚É”­Ëj
-                GameObject bullet = Instantiate(bulletPrefab, cameraTransform.position + cameraTransform.forward*0.5f, Quaternion.Euler(cameraTransform.eulerAngles.x, cameraTransform.eulerAngles.y, 0), bulletsParent);
-                Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
-                bulletRb.AddForce(cameraTransform.forward * shotSpeed);
-
-                //ËŒ‚‚³‚ê‚Ä‚©‚ç3•bŒã‚Ée’e‚ÌƒIƒuƒWƒFƒNƒg‚ğ”j‰ó‚·‚é
-                Destroy(bullet, 3.0f);
+                ShootLocal();
             }
-
         }
-        else if (Input.GetKeyDown(KeyCode.R))
+
+        if (Input.GetKeyDown(KeyCode.R))
         {
             bulletAmount = maxBullet;
         }
+    }
+
+    /// <summary>
+    /// è‡ªåˆ†ã®å¼¾ã‚’ãƒ­ãƒ¼ã‚«ãƒ«ã§ç”Ÿæˆã—ã¦ã€MagicOnion ã§åŒæœŸ
+    /// </summary>
+    private void ShootLocal()
+    {
+        if (cameraTransform == null || bulletsParent == null)
+            return;
+
+        Vector3 spawnPos = cameraTransform.position + cameraTransform.forward * 0.5f;
+        Quaternion rot = Quaternion.Euler(cameraTransform.eulerAngles.x, cameraTransform.eulerAngles.y, 0f);
+        Vector3 velocity = cameraTransform.forward * shotSpeed;
+
+        // ãƒ­ãƒ¼ã‚«ãƒ«ç”Ÿæˆï¼ˆè¦‹ãŸç›®ã¨ç‰©ç†æŒ™å‹•ï¼‰
+        GameObject bullet = Instantiate(bulletPrefab, spawnPos, rot, bulletsParent);
+        Rigidbody rb = bullet.GetComponent<Rigidbody>();
+        if (rb != null) rb.velocity = velocity;
+        Destroy(bullet, 3f);
+
+        // MagicOnion çµŒç”±ã§ä»–ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«é€šçŸ¥
+        roomModel?.ShootAsync(spawnPos, rot, velocity).Forget();
+    }
+
+    /// <summary>
+    /// ä»–ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®å¼¾ã‚’å—ä¿¡ã—ã¦ç”Ÿæˆ
+    /// </summary>
+    private void OnOtherPlayerShoot(Guid shooterId, Vector3 pos, Quaternion rot, Vector3 velocity)
+    {
+        if (roomModel == null) return;
+
+        // è‡ªåˆ†ã®å¼¾ã¯ç”Ÿæˆã—ãªã„
+        if (shooterId == roomModel.ConnectionId) return;
+
+        if (bulletsParent == null) return;
+
+        GameObject bullet = Instantiate(bulletPrefab, pos, rot, bulletsParent);
+        Rigidbody rb = bullet.GetComponent<Rigidbody>();
+        if (rb != null) rb.velocity = velocity;
+        Destroy(bullet, 3f);
     }
 }

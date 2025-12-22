@@ -14,8 +14,7 @@ public class PlayerContoroller : MonoBehaviour
     bool isGround;        // 地面に着地しているかどうかのフラグ変数
 
     [SerializeField] public Camera cam;
-
-    float speed = 0.1f; // スピード係数（大きいと瞬間移動するので注意！）
+    
     FloatingJoystick joystick;
 
     // HPの実装

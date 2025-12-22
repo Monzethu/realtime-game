@@ -106,6 +106,13 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         }
     }
 
+    // サーバーに自分が撃った弾の情報を送信
+    public async UniTask ShootAsync(Vector3 pos, Quaternion rot, Vector3 velocity)
+    {
+        await roomHub.ShootAsync(pos, rot, velocity);
+    }
+
+    // サーバーから他プレイヤーの弾情報を受信
     public void OnShoot(Guid shooterId, Vector3 pos, Quaternion rot, Vector3 velocity)
     {
         if (OnBulletReceived != null)
@@ -113,5 +120,4 @@ public class RoomModel : BaseModel, IRoomHubReceiver
             OnBulletReceived(shooterId, pos, rot, velocity);
         }
     }
-
 }

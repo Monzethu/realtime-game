@@ -83,7 +83,7 @@ namespace Server.StreamingHubs
         {
             //　退室したことを全メンバーに通知
             this.roomContext.Group.All.OnLeave(this.ConnectionId);
-            Console.WriteLine($"ルームに退出しました。ID：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Id}名前：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Name}");
+            Console.WriteLine($"ルームから退出しました。ID：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Id}名前：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Name}");
 
             //　ルーム内のメンバーから自分を削除
             this.roomContext.Group.Remove(this.ConnectionId);

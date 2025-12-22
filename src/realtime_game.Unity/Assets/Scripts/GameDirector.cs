@@ -46,6 +46,12 @@ public class GameDirector : MonoBehaviour
         character = Instantiate(characterPrefab);
         //Debug.Log(character.transform.position);
 
+        var shooting = character.GetComponentInChildren<Shooting>();
+        if (shooting != null)
+        {
+            shooting.SetRoomModel(roomModel);
+        }
+
         isJoin = false;
         timer = 0;
 

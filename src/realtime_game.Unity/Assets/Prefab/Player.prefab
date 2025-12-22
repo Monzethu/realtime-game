@@ -898,10 +898,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bulletPrefab: {fileID: 5960272796312929047, guid: ab12e466d95dc994c86255a66630f281, type: 3}
-  shotSpeed: 150
-  bulletAmount: 10
+  shotSpeed: 30
   maxBullet: 100
-  shootingTransform: {fileID: 2827878228847627664}
+  roomModel: {fileID: 0}
 --- !u!54 &8645201289009303027
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -1048,7 +1047,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1275588831764901602}
   - component: {fileID: 3872340184913970108}
-  - component: {fileID: 4328734474566042127}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1122,14 +1120,6 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!81 &4328734474566042127
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8178256317172529872}
-  m_Enabled: 1
 --- !u!1 &8950109965877721527
 GameObject:
   m_ObjectHideFlags: 0
