@@ -27,5 +27,11 @@ namespace Shared.Interfaces.StreamingHubs
 
         // 撃った情報を送る
         Task ShootAsync(Vector3 pos, Quaternion rot, Vector3 velocity);
+
+
+        Task SetReadyAsync(bool ready);
+
+        // ホスト用
+        Task StartGameAsync(); 
     }
 }

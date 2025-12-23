@@ -27,9 +27,14 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     // 弾の発射
     public Action<Guid, Vector3, Quaternion, Vector3> OnBulletReceived { get; set; }
 
+    // プレイヤーReady状態通知
+    public Action<Guid, bool> OnPlayerReadyStatusChangedReceived { get; set; }
+
+    // ゲーム開始通知
+    public Action OnStartGameReceived { get; set; }
+
     // ルームに接続してるかどうか
     public bool IsJoined { get; private set; }
-
 
     //　MagicOnion接続処理
     public async UniTask ConnectAsync()
@@ -56,7 +61,7 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         DisconnectAsync();
     }
 
-
+    #region Join/Leave
     //　入室
     public async UniTask JoinAsync(string roomName, int userId)
     {
@@ -98,14 +103,16 @@ public class RoomModel : BaseModel, IRoomHubReceiver
             OnLeftUser(connectionId);
         }
     }
+    #endregion
 
+    #region Move/Shoot
     //位置・回転を送信する
-    public　async UniTask MoveAsync(Vector3 position, Quaternion rotation)
+    public async UniTask MoveAsync(Vector3 position, Quaternion rotation)
     {
-        // サーバーの関数呼び出し
         await roomHub.MoveAsync(position, rotation);
     }
 
+    // 他プレイヤーの移動通知
     public void OnMove(Guid connectionId, Vector3 position, Quaternion rotation)
     {
         if (OnMoveCharacter != null)
@@ -128,4 +135,33 @@ public class RoomModel : BaseModel, IRoomHubReceiver
             OnBulletReceived(shooterId, pos, rot, velocity);
         }
     }
+    #endregion
+
+    #region Ready/Start
+    // サーバーにReady状態を送信
+    public async UniTask SetReadyAsync(bool ready)
+    {
+        if (roomHub == null || !IsJoined) return;
+        await roomHub.SetReadyAsync(ready);
+    }
+
+    // サーバーにゲーム開始要求（ホスト用）
+    public async UniTask StartGameAsync()
+    {
+        if (roomHub == null || !IsJoined) return;
+        await roomHub.StartGameAsync();
+    }
+
+    // サーバーからReady状態通知を受信
+    public void OnPlayerReadyStatusChanged(Guid connectionId, bool isReady)
+    {
+        OnPlayerReadyStatusChangedReceived?.Invoke(connectionId, isReady);
+    }
+
+    // サーバーからゲーム開始通知を受信
+    public void OnStartGame()
+    {
+        OnStartGameReceived?.Invoke();
+    }
+    #endregion
 }

@@ -13,5 +13,8 @@ namespace Server.StreamingHubs
         
         // 回転
         public Quaternion Rotation;
+
+        // 準備完了フラグ
+        public bool IsReady = false;
     }
 }

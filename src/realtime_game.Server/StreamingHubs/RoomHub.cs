@@ -126,5 +126,38 @@ namespace Server.StreamingHubs
 
             return Task.CompletedTask;
         }
+
+        public Task SetReadyAsync(bool ready)
+        {
+            if (roomContext == null) return Task.CompletedTask;
+
+            roomContext.RoomUserDataList[ConnectionId].IsReady = ready;
+
+            // 必要に応じて全員にReady状態を通知する
+            roomContext.Group.All.OnPlayerReadyStatusChanged(ConnectionId, ready);
+
+            return Task.CompletedTask;
+        }
+
+        public async Task StartGameAsync()
+        {
+            // 自分がホストかチェック
+            if (!roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Id.Equals(roomContext.RoomUserDataList.Values.First(u => u.JoinedUser.UserData.Id == u.JoinedUser.UserData.Id).JoinedUser.UserData.Id))
+            {
+                throw new Exception("ホストしかゲーム開始できません");
+            }
+
+            // 全員Readyチェック
+            bool allReady = roomContext.RoomUserDataList.Values.All(u => u.IsReady);
+            if (!allReady)
+            {
+                throw new Exception("全員準備完了していません");
+            }
+
+            // 全員にゲーム開始通知
+            roomContext.Group.All.OnStartGame();
+        }
+
+
     }
 }

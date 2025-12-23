@@ -8,7 +8,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
 
-
 public class GameDirector : MonoBehaviour
 {
     [SerializeField] GameObject characterPrefab;
@@ -25,6 +24,8 @@ public class GameDirector : MonoBehaviour
     [SerializeField] InputField userIdInput;
     [SerializeField] Button joinButton;
     [SerializeField] Button leaveButton;
+    [SerializeField] Button readyButton; // 追加
+    [SerializeField] Button startButton; // 追加
 
     bool isJoin;
 
@@ -62,6 +63,10 @@ public class GameDirector : MonoBehaviour
         // ユーザーが移動・回転したときにOnMoveCharacterメソッドを実行できるよう、モデルに登録しておく
         roomModel.OnMoveCharacter += OnMoveCharacter;
 
+        // サーバーからのゲーム開始通知イベントを登録
+        roomModel.OnStartGameReceived += OnStartGameReceived;
+        // プレイヤーReady状態変更通知イベント
+        roomModel.OnPlayerReadyStatusChangedReceived += OnPlayerReadyStatusChangedReceived;
 
         //接続
         Debug.Log("ConnectAsync 開始");
@@ -71,6 +76,8 @@ public class GameDirector : MonoBehaviour
         // ボタン登録
         joinButton.onClick.AddListener(OnJoinButtonPressed);
         leaveButton.onClick.AddListener(OnLeaveButtonPressed);
+        readyButton.onClick.AddListener(OnReadyClicked); // Readyボタン登録
+        startButton.onClick.AddListener(OnStartClicked); // Startボタン登録
     }
 
     async void Update()
@@ -91,7 +98,7 @@ public class GameDirector : MonoBehaviour
         // Ecapeを押したとき
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            isShowMouseCursor = isShowMouseCursor ? false : true;
+            isShowMouseCursor = !isShowMouseCursor;
             if (isShowMouseCursor)
             {
                 ShowMouseCursor();
@@ -140,7 +147,7 @@ public class GameDirector : MonoBehaviour
 
         myUserId = int.Parse(userIdInput.text);
 
-        
+
         Debug.Log("JoinRoom 呼ばれた: " + roomNameInput.text);
         try
         {
@@ -172,6 +179,34 @@ public class GameDirector : MonoBehaviour
     private void OnLeaveButtonPressed()
     {
         LeaveRoom();
+    }
+
+    // Readyボタン押下
+    private async void OnReadyClicked()
+    {
+        if (!isJoin) return;
+        await roomModel.SetReadyAsync(true);
+    }
+
+    // Startボタン押下
+    private async void OnStartClicked()
+    {
+        if (!isJoin) return;
+        await roomModel.StartGameAsync();
+    }
+
+    // サーバーからゲーム開始通知を受け取った
+    private void OnStartGameReceived()
+    {
+        Debug.Log("ゲームスタート！シーン遷移します");
+        UnityEngine.SceneManagement.SceneManager.LoadScene("BattleScene");
+    }
+
+    // サーバーからReady状態通知を受け取った
+    private void OnPlayerReadyStatusChangedReceived(Guid connectionId, bool isReady)
+    {
+        Debug.Log($"Player {connectionId} Ready: {isReady}");
+        // TODO: UIに反映
     }
 
     // ユーザーが入室した時の処理
@@ -211,7 +246,7 @@ public class GameDirector : MonoBehaviour
             characterList.Remove(connectionId);
         }
 
-        isJoin=false;
+        isJoin = false;
 
         // 退室
         await roomModel.LeaveAsync();

@@ -21,5 +21,9 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
 
         // 撃った情報を送る
         void OnShoot(Guid shooterId, Vector3 pos, Quaternion rot, Vector3 velocity);
+
+        void OnStartGame(); // クライアントでシーン遷移
+
+        void OnPlayerReadyStatusChanged(Guid connectionId, bool isReady);
     }
 }

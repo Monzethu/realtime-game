@@ -74,7 +74,7 @@ public class Shooting : MonoBehaviour
         // ローカル弾は常に生成（待機中の試し打ち可能）
         GameObject bullet = Instantiate(bulletPrefab, spawnPos, rot, bulletsParent);
         Rigidbody rb = bullet.GetComponent<Rigidbody>();
-        if (rb != null) rb.velocity = velocity;
+        if (rb != null) rb.linearVelocity = velocity;
         Destroy(bullet, 3f);
 
         // ルームに入ってたら同期
@@ -99,7 +99,7 @@ public class Shooting : MonoBehaviour
 
         GameObject bullet = Instantiate(bulletPrefab, pos, rot, bulletsParent);
         Rigidbody rb = bullet.GetComponent<Rigidbody>();
-        if (rb != null) rb.velocity = velocity;
+        if (rb != null) rb.linearVelocity = velocity;
         Destroy(bullet, 3f);
     }
 }
