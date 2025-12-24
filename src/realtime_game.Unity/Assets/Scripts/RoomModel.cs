@@ -6,6 +6,7 @@ using Shared.Interfaces.StreamingHubs;
 using System;
 using UnityEngine;
 using System.Threading.Tasks;
+using Grpc.Core;
 
 public class RoomModel : BaseModel, IRoomHubReceiver
 {
@@ -32,6 +33,10 @@ public class RoomModel : BaseModel, IRoomHubReceiver
 
     // ゲーム開始通知
     public Action OnStartGameReceived { get; set; }
+
+    // ゲーム開始失敗通知（エラー理由）
+    public Action<string> OnStartGameError { get; set; }
+
 
     // ルームに接続してるかどうか
     public bool IsJoined { get; private set; }
@@ -148,9 +153,16 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     // サーバーにゲーム開始要求（ホスト用）
     public async UniTask StartGameAsync()
     {
-        if (roomHub == null || !IsJoined) return;
-        await roomHub.StartGameAsync();
+        try
+        {
+            await roomHub.StartGameAsync();
+        }
+        catch (RpcException ex)
+        {
+            OnStartGameError?.Invoke(ex.Status.Detail);
+        }
     }
+
 
     // サーバーからReady状態通知を受信
     public void OnPlayerReadyStatusChanged(Guid connectionId, bool isReady)

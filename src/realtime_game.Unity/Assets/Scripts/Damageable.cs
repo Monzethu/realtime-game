@@ -10,15 +10,10 @@ public class Damageable : MonoBehaviour
         currentHp = maxHp;
     }
 
-    /// <summary>
-    /// ダメージを受ける
-    /// </summary>
     public virtual void TakeDamage(int damage)
     {
         currentHp -= damage;
-        currentHp = Mathf.Max(currentHp, 0);
-
-        Debug.Log($"{gameObject.name} HP: {currentHp}");
+        currentHp = Mathf.Clamp(currentHp, 0, maxHp);
 
         if (currentHp <= 0)
         {
@@ -26,11 +21,13 @@ public class Damageable : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// HPが0になったときの処理（派生クラスで上書き）
-    /// </summary>
     protected virtual void Die()
     {
-        Debug.Log($"{gameObject.name} Died");
+        Debug.Log($"{gameObject.name} died");
+    }
+
+    public virtual void ResetHP()
+    {
+        currentHp = maxHp;
     }
 }

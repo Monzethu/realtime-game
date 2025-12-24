@@ -1,83 +1,49 @@
 using UnityEngine;
-using UnityEngine.UI;
+using System.Collections;
 
-public class PlayerHP : MonoBehaviour
+public class PlayerHP : Damageable
 {
-    [Header("HP Settings")]
-    [SerializeField] private int maxHp = 100;
-    private int currentHp;
+    [SerializeField] private Vector3 respawnPosition = new Vector3(0, 0, 0);
 
-    [Header("UI")]
-    [SerializeField] private Slider hpSlider;
+    private PlayerContoroller controller;
+    private PlayerPOV pov;
 
-    private void Awake()
+    protected override void Awake()
     {
-        currentHp = maxHp;
+        base.Awake();
+        controller = GetComponent<PlayerContoroller>();
+        pov = GetComponent<PlayerPOV>();
+    }
 
-        if (hpSlider != null)
-        {
-            hpSlider.minValue = 0f;
-            hpSlider.maxValue = 1f;
-            UpdateUI();
-        }
+    protected override void Die()
+    {
+        Debug.Log($"{gameObject.name} died");
+
+        // 操作停止
+        if (controller != null) controller.enabled = false;
+        if (pov != null) pov.enabled = false;
+
+        // 2秒後にリスポーン
+        StartCoroutine(RespawnAfterDelay(2f));
+    }
+
+    private IEnumerator RespawnAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        // HP回復
+        ResetHP();
+
+        // スポーン位置
+        if (GameController.Instance != null)
+            transform.position = GameController.Instance.GetSpawnPosition();
         else
-        {
-            Debug.LogWarning("HP Slider が設定されていません");
-        }
-    }
+            transform.position = respawnPosition;
 
-    /// <summary>
-    /// ダメージを受ける
-    /// </summary>
-    public void TakeDamage(int damage)
-    {
-        currentHp -= damage;
-        currentHp = Mathf.Clamp(currentHp, 0, maxHp);
+        transform.rotation = Quaternion.identity;
 
-        UpdateUI();
-
-        if (currentHp <= 0)
-        {
-            Die();
-        }
-    }
-
-    /// <summary>
-    /// 回復
-    /// </summary>
-    public void Heal(int value)
-    {
-        currentHp += value;
-        currentHp = Mathf.Clamp(currentHp, 0, maxHp);
-
-        UpdateUI();
-    }
-
-    private void UpdateUI()
-    {
-        if (hpSlider != null)
-        {
-            hpSlider.value = (float)currentHp / maxHp;
-        }
-    }
-
-    private void Die()
-    {
-        Debug.Log("Player Dead");
-
-        // 一旦動けなくする例
-        var controller = GetComponent<PlayerContoroller>();
-        if (controller != null)
-        {
-            controller.enabled = false;
-        }
-    }
-
-    /// <summary>
-    /// デバッグ用
-    /// </summary>
-    public int GetCurrentHP()
-    {
-        return currentHp;
+        // 操作復帰
+        if (controller != null) controller.enabled = true;
+        if (pov != null) pov.enabled = true;
     }
 }

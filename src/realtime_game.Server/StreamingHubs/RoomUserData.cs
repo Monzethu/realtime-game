@@ -16,5 +16,8 @@ namespace Server.StreamingHubs
 
         // 準備完了フラグ
         public bool IsReady = false;
+
+        public int JoinOrder;
     }
 }
+

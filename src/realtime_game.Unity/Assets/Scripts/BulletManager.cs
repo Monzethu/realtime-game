@@ -22,23 +22,22 @@ public class BulletManager : MonoBehaviour
     {
         if (isDestroyed) return;
 
-        // Player 以外は無視
-        if (!collision.gameObject.CompareTag("Player")) return;
-
-        var player = collision.gameObject.GetComponent<PlayerIdentity>();
-        if (player == null) return;
+        // Damageable を探す（Player想定）
+        var damageable = collision.gameObject.GetComponentInParent<Damageable>();
+        if (damageable == null) return;
 
         // 自分が撃った弾が自分に当たった → 無視
-        if (player.ConnectionId == ShooterId) return;
+        var player = collision.gameObject.GetComponentInParent<PlayerIdentity>();
+        if (player != null && player.ConnectionId == ShooterId) return;
 
-        // ヒット処理
         isDestroyed = true;
 
-        // ここで「弾が当たった」ことを通知する
-        NotifyHit(player.ConnectionId);
+        // ★ HPを減らす
+        damageable.TakeDamage(10);
 
         Destroy(gameObject);
     }
+
 
     void NotifyHit(Guid hitPlayerId)
     {

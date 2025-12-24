@@ -8,11 +8,12 @@ using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
 
+// ロビー兼射撃場（Playerは死なない。）
 public class GameDirector : MonoBehaviour
 {
     [SerializeField] GameObject characterPrefab;
     GameObject character;
-    Dictionary<Guid, GameObject> characterList = new Dictionary<Guid, GameObject>();
+    public Dictionary<Guid, GameObject> characterList = new Dictionary<Guid, GameObject>();
 
     RoomModel roomModel;
     UserModel userModel;
@@ -33,8 +34,24 @@ public class GameDirector : MonoBehaviour
 
     private bool isShowMouseCursor;
 
+    JoinedUser myJoinedUser;
+
+    [SerializeField] Text messageText;// 表示するメッセージ
+
+    public static GameDirector Instance { get; private set; }
+
     private void Awake()
     {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject); // LobbyScene → BattleScene で保持
+        }
+        else
+        {
+            Destroy(gameObject); // 二重生成防止
+        }
+
         HideMouseCursor();
         isShowMouseCursor = false;
     }
@@ -62,6 +79,8 @@ public class GameDirector : MonoBehaviour
         roomModel.OnLeftUser += this.OnLeftUser;
         // ユーザーが移動・回転したときにOnMoveCharacterメソッドを実行できるよう、モデルに登録しておく
         roomModel.OnMoveCharacter += OnMoveCharacter;
+
+        roomModel.OnStartGameError += OnStartGameError;
 
         // サーバーからのゲーム開始通知イベントを登録
         roomModel.OnStartGameReceived += OnStartGameReceived;
@@ -91,7 +110,10 @@ public class GameDirector : MonoBehaviour
                 timer = 0;
 
                 // 自分の位置と回転をサーバーに送信
-                await roomModel.MoveAsync(character.transform.position, character.transform.rotation);
+                if (character != null)
+                {
+                    await roomModel.MoveAsync(character.transform.position, character.transform.rotation);
+                }
             }
         }
 
@@ -199,7 +221,7 @@ public class GameDirector : MonoBehaviour
     private void OnStartGameReceived()
     {
         Debug.Log("ゲームスタート！シーン遷移します");
-        UnityEngine.SceneManagement.SceneManager.LoadScene("BattleScene");
+        UnityEngine.SceneManagement.SceneManager.LoadScene("ButtleScene");
     }
 
     // サーバーからReady状態通知を受け取った
@@ -213,27 +235,39 @@ public class GameDirector : MonoBehaviour
     private void OnJoinedUser(JoinedUser user)
     {
         Debug.Log("===== ユーザー入室 =====");
-        Debug.Log("Connection ID : " + user.ConnectionId);
-        Debug.Log("User ID       : " + user.UserData.Id);
-        Debug.Log("User Name     : " + user.UserData.Name);
+        Debug.Log($"UserId={user.UserData.Id}, JoinOrder={user.JoinOrder}");
         Debug.Log("=======================");
 
-        // すでに表示済みのユーザーは追加しない
-        // 自分は追加しない
-        if (characterList.ContainsKey(user.ConnectionId) || user.UserData.Id == myUserId)
+        // ★ 自分自身だった場合
+        if (user.UserData.Id == myUserId)
         {
+            myJoinedUser = user;
+
+            // ホスト判定（JoinOrder == 0）
+            if (myJoinedUser.JoinOrder == 0)
+            {
+                startButton.interactable = true;
+                ShowMessage("あなたはホストです");
+            }
+            else
+            {
+                startButton.interactable = false;
+                ShowMessage("ホストの開始を待っています");
+            }
+
             return;
         }
 
-        GameObject characterObject = Instantiate(characterPrefab);  //インスタンス生成
-        characterObject.GetComponent<PlayerContoroller>().cam.depth = -10; // 生成したPlayerのカメラの優先度を下げる
-        characterObject.transform.position = new Vector3(0, 0, 0); // 配置位置設定
-        characterObject.name = "Player_" + user.UserData.Id;
+        // ===== 以下は他人用（今までの処理）=====
+        if (characterList.ContainsKey(user.ConnectionId))
+            return;
 
+        GameObject characterObject = Instantiate(characterPrefab);
+        characterObject.GetComponent<PlayerContoroller>().cam.depth = -10;
         characterObject.GetComponent<PlayerContoroller>().enabled = false;
         characterObject.GetComponent<PlayerPOV>().enabled = false;
 
-        characterList[user.ConnectionId] = characterObject;  //フィールドで保持
+        characterList[user.ConnectionId] = characterObject;
     }
 
     // 退室処理
@@ -285,4 +319,39 @@ public class GameDirector : MonoBehaviour
         // DOTween で滑らかに移動
         obj.DOMove(pos, 0.1f).SetEase(Ease.Linear);
     }
+
+    // メッセージ関係
+    void OnStartGameError(string errorCode)
+    {
+        switch (errorCode)
+        {
+            case "NOT_HOST":
+                ShowMessage("あなたはホストではありません！");
+                break;
+
+            case "NOT_ALL_READY":
+                ShowMessage("全員の準備が終わっていません");
+                break;
+
+            default:
+                ShowMessage("開始できませんでした");
+                break;
+        }
+    }
+
+    void ShowMessage(string message)
+    {
+        messageText.text = message;
+        messageText.gameObject.SetActive(true);
+
+        // 3秒後に消す
+        CancelInvoke(nameof(HideMessage));
+        Invoke(nameof(HideMessage), 3f);
+    }
+
+    void HideMessage()
+    {
+        messageText.gameObject.SetActive(false);
+    }
+
 }

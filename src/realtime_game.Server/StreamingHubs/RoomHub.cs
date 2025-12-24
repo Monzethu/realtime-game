@@ -5,6 +5,7 @@ using realtime_game.Shared.Interfaces.StreamingHubs;
 using Shared.Interfaces.StreamingHubs;
 using UnityEngine;
 using Cysharp.Runtime.Multicast;
+using Grpc.Core;
 
 namespace Server.StreamingHubs
 {
@@ -13,45 +14,61 @@ namespace Server.StreamingHubs
         private RoomContextRepository roomContextRepos;
         private RoomContext roomContext;
 
-        // ルームに接続
         public async Task<JoinedUser[]> JoinAsync(string roomName, int userId)
         {
-            // 同時に生成しないように排他制御
             lock (roomContextRepos)
             {
-                // 指定の名前のルームがあるかどうかを確認
                 this.roomContext = roomContextRepos.GetContext(roomName);
                 if (this.roomContext == null)
-                { // 無かったら生成
+                {
                     this.roomContext = roomContextRepos.CreateContext(roomName);
                     Console.WriteLine("ルームが生成されました");
                 }
             }
 
-            // ルームに参加 & ルームを保持
+            // グループに参加
             this.roomContext.Group.Add(this.ConnectionId, Client);
 
             // DBからユーザー情報取得
             GameDbContext context = new GameDbContext();
-            User user = context.Users.Where(user => user.Id == userId).First();
+            User user = context.Users.First(u => u.Id == userId);
 
-            // 入室済みユーザーのデータを作成
-            var joinedUser = new JoinedUser();
-            joinedUser.ConnectionId = this.ConnectionId;
-            joinedUser.UserData = user;
+            // JoinOrder 決定
+            int joinOrder = this.roomContext.RoomUserDataList.Count;
 
-            // ルームコンテキストにユーザー情報を登録
-            var roomUserData = new RoomUserData() { JoinedUser = joinedUser };
-            this.roomContext.RoomUserDataList[ConnectionId] = roomUserData;
-            Console.WriteLine($"ルームに参加しました。ID：{roomUserData.JoinedUser.UserData.Id}名前：{roomUserData.JoinedUser.UserData.Name}");
+            // JoinedUser 作成
+            var joinedUser = new JoinedUser
+            {
+                ConnectionId = this.ConnectionId,
+                UserData = user,
+                JoinOrder = joinOrder
+            };
 
-            // 自分以外のルーム参加者全員に、ユーザーの入室通知を送信
-            this.roomContext.Group.Except([this.ConnectionId]).OnJoin(joinedUser);
+            // RoomUserData 作成して登録
+            var roomUserData = new RoomUserData
+            {
+                JoinedUser = joinedUser,
+                IsReady = false
+            };
 
-            // 入室リクエストをしたユーザーに、参加者の情報をリストで返す
-            return this.roomContext.RoomUserDataList.Select(
-                f => f.Value.JoinedUser).ToArray();
+            this.roomContext.RoomUserDataList[this.ConnectionId] = roomUserData;
+
+            Console.WriteLine(
+                $"Join: UserId={user.Id}, Name={user.Name}, JoinOrder={joinOrder}"
+            );
+
+            // 自分以外に入室通知
+            this.roomContext.Group
+                .Except([this.ConnectionId])
+                .OnJoin(joinedUser);
+
+            // 現在の参加者一覧を返す
+            return this.roomContext.RoomUserDataList
+                .Select(x => x.Value.JoinedUser)
+                .ToArray();
         }
+
+
 
         // 接続時の処理
         protected override ValueTask OnConnected()
@@ -112,7 +129,7 @@ namespace Server.StreamingHubs
             userData.Rotation = rot;
 
             // 自分以外の全メンバーに通知
-            this.roomContext.Group.Except([ this.ConnectionId ])
+            this.roomContext.Group.Except([this.ConnectionId])
                 .OnMove(this.ConnectionId, pos, rot);
 
             return Task.CompletedTask;
@@ -139,25 +156,30 @@ namespace Server.StreamingHubs
             return Task.CompletedTask;
         }
 
-        public async Task StartGameAsync()
+        public Task StartGameAsync()
         {
-            // 自分がホストかチェック
-            if (!roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Id.Equals(roomContext.RoomUserDataList.Values.First(u => u.JoinedUser.UserData.Id == u.JoinedUser.UserData.Id).JoinedUser.UserData.Id))
+            var myData = roomContext.RoomUserDataList[this.ConnectionId];
+
+            // ホストチェック（JoinOrder 0 = ホスト）
+            if (myData.JoinedUser.JoinOrder != 0)
             {
-                throw new Exception("ホストしかゲーム開始できません");
+                throw new RpcException(
+                    new Status(StatusCode.PermissionDenied, "NOT_HOST")
+                );
             }
 
             // 全員Readyチェック
-            bool allReady = roomContext.RoomUserDataList.Values.All(u => u.IsReady);
-            if (!allReady)
+            if (!roomContext.RoomUserDataList.Values.All(u => u.IsReady))
             {
-                throw new Exception("全員準備完了していません");
+                throw new RpcException(
+                    new Status(StatusCode.FailedPrecondition, "NOT_ALL_READY")
+                );
             }
 
             // 全員にゲーム開始通知
             roomContext.Group.All.OnStartGame();
+
+            return Task.CompletedTask;
         }
-
-
     }
 }
