@@ -25,8 +25,8 @@ public class GameDirector : MonoBehaviour
     [SerializeField] InputField userIdInput;
     [SerializeField] Button joinButton;
     [SerializeField] Button leaveButton;
-    [SerializeField] Button readyButton; // ’Ç‰Á
-    [SerializeField] Button startButton; // ’Ç‰Á
+    [SerializeField] Button readyButton;
+    [SerializeField] Button startButton;
 
     bool isJoin;
 
