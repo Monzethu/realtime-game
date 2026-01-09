@@ -12,6 +12,10 @@ namespace realtime_game.Shared.Models.Entities
         [Key(1)]
         public string Name { get; set; }
 
+        // クライアントには返さない
+        [IgnoreMember]
+        public string Pass { get; set; }
+
         [Key(2)]
         public string Token { get; set; }
 
