@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.LowLevel;
 
 public class GameController : MonoBehaviour
 {
-    // LobbySceneで新規生成したPlayerをBattleSceneで再生成
-    // もしくはゲームスタートした時点でユーザー登録
+    // LobbySceneで新規生成したPlayerをBattleSceneで再利用
 
     public static GameController Instance { get; private set; }
 
@@ -15,13 +15,27 @@ public class GameController : MonoBehaviour
     [SerializeField] private float matchTime = 30f;
 
     [Header("UI")]
-    [SerializeField] private GameObject resultPanel; // Inspectorで紐付け
+    [SerializeField] private GameObject resultPanel;
 
     private float timer;
     private bool isGameRunning;
 
-    // プレイヤー管理（必要に応じてBattleSceneで既存Playerを引き継ぐ）
+    // プレイヤー管理
     public Dictionary<string, GameObject> players = new Dictionary<string, GameObject>();
+
+    void Awake()
+    {
+        // Singleton
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
+    }
 
     void Start()
     {
@@ -30,6 +44,9 @@ public class GameController : MonoBehaviour
 
         if (resultPanel != null)
             resultPanel.SetActive(false);
+
+        // ★ 既存Playerを探して登録（Lobby → Battle 対応）
+        RegisterExistingPlayer();
     }
 
     void Update()
@@ -43,6 +60,39 @@ public class GameController : MonoBehaviour
         }
     }
 
+    // ★ Lobby用：Playerがいなければ生成
+    public GameObject SpawnPlayerIfNeeded(string playerId)
+    {
+        if (players.ContainsKey(playerId))
+        {
+            return players[playerId];
+        }
+
+        GameObject player = FindObjectOfType<PlayerRoot>()?.gameObject;
+
+        if (player == null)
+        {
+            player = Instantiate(
+                playerPrefab,
+                GetSpawnPosition(),
+                Quaternion.identity
+            );
+        }
+
+        players[playerId] = player;
+        return player;
+    }
+
+    // ★ BattleScene用：既存Playerを登録するだけ
+    private void RegisterExistingPlayer()
+    {
+        var player = FindObjectOfType<PlayerRoot>();
+        if (player != null)
+        {
+            players["LocalPlayer"] = player.gameObject;
+        }
+    }
+
     // 試合終了
     private void EndGame()
     {
@@ -53,7 +103,7 @@ public class GameController : MonoBehaviour
             resultPanel.SetActive(true);
     }
 
-    // スポーン位置（固定座標 or ランダム座標）
+    // スポーン位置
     public Vector3 GetSpawnPosition()
     {
         return new Vector3(
