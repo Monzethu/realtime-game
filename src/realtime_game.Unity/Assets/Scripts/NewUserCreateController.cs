@@ -3,35 +3,25 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Cysharp.Threading.Tasks;
 
-public class TitleController : MonoBehaviour
+public class NewUserCreateController : MonoBehaviour
 {
     [SerializeField] private InputField inputName;
     [SerializeField] private InputField inputPassword;
-    [SerializeField] private Text errorText;
     [SerializeField] private string nextSceneName = "LobbyScene";
 
     private bool isProcessing;
 
-    private void Awake()
-    {
-        errorText.gameObject.SetActive(false);
-    }
-
-    public async void OnStartClicked()
+    public async void OnRegisterClicked()
     {
         if (isProcessing) return;
         isProcessing = true;
-
-        // 毎回リセット
-        errorText.gameObject.SetActive(false);
 
         string name = inputName.text.Trim();
         string password = inputPassword.text;
 
         if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(password))
         {
-            errorText.text = "ユーザー名とパスワードを入力してください";
-            errorText.gameObject.SetActive(true);
+            Debug.LogError("名前またはパスワードが空です");
             isProcessing = false;
             return;
         }
@@ -39,26 +29,19 @@ public class TitleController : MonoBehaviour
         var userModel = UserModel.Instance;
 
         LoadingManager.Show();
-        bool success = await userModel.LoginUserAsync(name, password);
+        bool success = await userModel.RegistUserAsync(name, password);
         LoadingManager.Hide();
 
         if (success)
         {
+            Debug.Log("ユーザー登録成功");
+            userModel.SaveUserData();
             SceneManager.LoadScene(nextSceneName);
         }
         else
         {
-            errorText.text = "ユーザー名またはパスワードが違います";
-            errorText.gameObject.SetActive(true);
+            Debug.LogError("ユーザー登録失敗");
             isProcessing = false;
         }
-    }
-
-
-    public void OnNewUserClicked()
-    {
-        LoadingManager.Show();
-        SceneManager.LoadScene("CreateUserScene");
-        LoadingManager.Hide();
     }
 }
