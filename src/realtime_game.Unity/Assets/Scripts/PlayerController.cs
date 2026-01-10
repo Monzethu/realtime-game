@@ -17,8 +17,6 @@ public class PlayerContoroller : MonoBehaviour
     
     FloatingJoystick joystick;
 
-    private bool isLocalPlayer;
-
     // HPの実装
 
     private void Awake()
@@ -34,11 +32,6 @@ public class PlayerContoroller : MonoBehaviour
         // ジョイスティックの情報を取得
         joystick = GameObject.Find("Floating Joystick").GetComponent<FloatingJoystick> ();
 
-    }
-
-    public void SetLocal(bool isLocal)
-    {
-        isLocalPlayer = isLocal;
     }
 
     // Update is called once per frame

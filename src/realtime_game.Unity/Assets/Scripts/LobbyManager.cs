@@ -27,29 +27,42 @@ public class LobbyManager : MonoBehaviour
     private Dictionary<Guid, GameObject> otherCharacters = new();
 
     private bool isJoined;
-    private bool isShowMouseCursor;
+
+    // ===== Cursor =====
+    private bool isShowMouseCursor = false;
 
     // =========================
     // Unity Lifecycle
     // =========================
+    private void Awake()
+    {
+        Debug.Log("LobbyManager Awake 呼ばれた");
+    }
+
     private async void Start()
     {
+        Debug.Log("LobbyManager Start 呼ばれた");
+
         roomModel = GetComponent<RoomModel>();
         userModel = UserModel.Instance;
 
-        // RoomModel Events
+        // 自分のPlayerは常に生成（射撃場）
+        SpawnMyCharacter();
+
+        // RoomModelイベント
         roomModel.OnJoinedUser += OnJoinedUser;
         roomModel.OnLeftUser += OnLeftUser;
         roomModel.OnPlayerReadyStatusChangedReceived += OnReadyStatusChanged;
         roomModel.OnStartGameReceived += OnStartGameReceived;
         roomModel.OnStartGameError += OnStartGameError;
 
-        // 接続
-        LoadingManager.Show();
-        await roomModel.ConnectAsync();
-        LoadingManager.Hide();
 
-        // UI
+        // 接続
+        LoadingManager.Show();   // ← ここに追加
+        await roomModel.ConnectAsync();
+        LoadingManager.Hide();   // ← ここに追加
+
+        // ボタン
         joinButton.onClick.AddListener(OnJoinClicked);
         leaveButton.onClick.AddListener(OnLeaveClicked);
         readyButton.onClick.AddListener(OnReadyClicked);
@@ -57,17 +70,56 @@ public class LobbyManager : MonoBehaviour
 
         startButton.interactable = false;
 
+        // 初期カーソル状態
         HideMouseCursor();
         isShowMouseCursor = false;
     }
 
     private void Update()
     {
+        // ESCでカーソル切り替え
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             isShowMouseCursor = !isShowMouseCursor;
-            if (isShowMouseCursor) ShowMouseCursor();
-            else HideMouseCursor();
+
+            if (isShowMouseCursor)
+            {
+                ShowMouseCursor();
+                Debug.Log("カーソル表示");
+            }
+            else
+            {
+                HideMouseCursor();
+                Debug.Log("カーソル非表示");
+            }
+        }
+    }
+
+    // =========================
+    // Player生成
+    // =========================
+    private void SpawnMyCharacter()
+    {
+        Debug.Log("SpawnMyCharacter start");
+
+        myCharacter = Instantiate(characterPrefab);
+        Debug.Log("Instantiate OK");
+
+        var controller = myCharacter.GetComponent<PlayerContoroller>();
+        Debug.Log("Controller = " + controller);
+
+        var pov = myCharacter.GetComponent<PlayerPOV>();
+        Debug.Log("POV = " + pov);
+
+        var shooting = myCharacter.GetComponentInChildren<Shooting>();
+        Debug.Log("Shooting = " + shooting);
+
+        if (controller != null) controller.enabled = true;
+        if (pov != null) pov.enabled = true;
+
+        if (shooting != null)
+        {
+            shooting.SetRoomModel(roomModel);
         }
     }
 
@@ -84,22 +136,25 @@ public class LobbyManager : MonoBehaviour
             return;
         }
 
-        await roomModel.JoinAsync(roomNameInput.text, userModel.UserId);
+        int userId = userModel.UserId;
+
+        await roomModel.JoinAsync(roomNameInput.text, userId);
         isJoined = true;
 
         ShowMessage("ルームに参加しました");
     }
 
+
+
+
     private async void OnLeaveClicked()
     {
         if (!isJoined) return;
 
-        if (myCharacter != null)
-            Destroy(myCharacter);
-
         foreach (var obj in otherCharacters.Values)
+        {
             Destroy(obj);
-
+        }
         otherCharacters.Clear();
 
         await roomModel.LeaveAsync();
@@ -114,27 +169,10 @@ public class LobbyManager : MonoBehaviour
     // =========================
     private void OnJoinedUser(JoinedUser user)
     {
-        Debug.Log($"OnJoinedUser 呼ばれた: {user.ConnectionId}");
-
-        bool isLocal = user.ConnectionId == roomModel.ConnectionId;
-
-        GameObject player = Instantiate(characterPrefab);
-
-        var controller = player.GetComponent<PlayerContoroller>();
-        var pov = player.GetComponent<PlayerPOV>();
-        var shooting = player.GetComponentInChildren<Shooting>();
-
-        // ★ Local / Remote 制御
-        controller.enabled = isLocal;
-        pov.enabled = isLocal;
-        shooting.enabled = isLocal;
-
-        if (isLocal)
+        // 自分
+        if (user.ConnectionId == roomModel.ConnectionId)
         {
-            myCharacter = player;
             myJoinedUser = user;
-
-            shooting.SetRoomModel(roomModel);
 
             if (user.JoinOrder == 0)
             {
@@ -146,18 +184,25 @@ public class LobbyManager : MonoBehaviour
                 startButton.interactable = false;
                 ShowMessage("ホストの開始を待っています");
             }
+
+            return;
         }
-        else
-        {
-            otherCharacters[user.ConnectionId] = player;
-        }
+
+        if (otherCharacters.ContainsKey(user.ConnectionId)) return;
+
+        GameObject other = Instantiate(characterPrefab);
+        other.GetComponent<PlayerContoroller>().enabled = false;
+        other.GetComponent<PlayerPOV>().enabled = false;
+
+        otherCharacters[user.ConnectionId] = other;
     }
+
 
     private void OnLeftUser(Guid connectionId)
     {
-        if (!otherCharacters.TryGetValue(connectionId, out var player)) return;
+        if (!otherCharacters.ContainsKey(connectionId)) return;
 
-        Destroy(player);
+        Destroy(otherCharacters[connectionId]);
         otherCharacters.Remove(connectionId);
     }
 
@@ -167,17 +212,18 @@ public class LobbyManager : MonoBehaviour
     private async void OnReadyClicked()
     {
         if (!isJoined) return;
-
         await roomModel.SetReadyAsync(true);
         ShowMessage("Ready!");
     }
 
     private async void OnStartClicked()
     {
-        if (!isJoined || myJoinedUser == null) return;
+        if (!isJoined) return;
+        if (myJoinedUser == null) return;
 
         await roomModel.StartGameAsync();
     }
+
 
     private void OnReadyStatusChanged(Guid connectionId, bool isReady)
     {
@@ -196,25 +242,28 @@ public class LobbyManager : MonoBehaviour
             case "NOT_ALL_READY":
                 ShowMessage("全員の準備が終わっていません");
                 break;
+
             case "NOT_HOST":
                 ShowMessage("ホストしか開始できません");
                 break;
+
             default:
                 ShowMessage("ゲームを開始できませんでした");
                 break;
         }
     }
 
+
     // =========================
     // Cursor
     // =========================
-    private void HideMouseCursor()
+    public void HideMouseCursor()
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
 
-    private void ShowMouseCursor()
+    public void ShowMouseCursor()
     {
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
