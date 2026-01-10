@@ -35,7 +35,7 @@ public class LobbyManager : MonoBehaviour
     private async void Start()
     {
         roomModel = GetComponent<RoomModel>();
-        userModel = UserModel.Instance;
+        userModel = GetComponent<UserModel>();
 
         // RoomModel Events
         roomModel.OnJoinedUser += OnJoinedUser;
@@ -45,9 +45,9 @@ public class LobbyManager : MonoBehaviour
         roomModel.OnStartGameError += OnStartGameError;
 
         // 接続
-        LoadingManager.Show();
+        LoadingManager.Show();   // ← ここに追加
         await roomModel.ConnectAsync();
-        LoadingManager.Hide();
+        LoadingManager.Hide();   // ← ここに追加
 
         // UI
         joinButton.onClick.AddListener(OnJoinClicked);
@@ -70,6 +70,7 @@ public class LobbyManager : MonoBehaviour
             else HideMouseCursor();
         }
     }
+
 
     // =========================
     // Join / Leave
@@ -134,8 +135,6 @@ public class LobbyManager : MonoBehaviour
             myCharacter = player;
             myJoinedUser = user;
 
-            shooting.SetRoomModel(roomModel);
-
             if (user.JoinOrder == 0)
             {
                 startButton.interactable = true;
@@ -146,6 +145,8 @@ public class LobbyManager : MonoBehaviour
                 startButton.interactable = false;
                 ShowMessage("ホストの開始を待っています");
             }
+
+            return;
         }
         else
         {
@@ -174,7 +175,8 @@ public class LobbyManager : MonoBehaviour
 
     private async void OnStartClicked()
     {
-        if (!isJoined || myJoinedUser == null) return;
+        if (!isJoined) return;
+        if (myJoinedUser == null) return;
 
         await roomModel.StartGameAsync();
     }
@@ -196,9 +198,11 @@ public class LobbyManager : MonoBehaviour
             case "NOT_ALL_READY":
                 ShowMessage("全員の準備が終わっていません");
                 break;
+
             case "NOT_HOST":
                 ShowMessage("ホストしか開始できません");
                 break;
+
             default:
                 ShowMessage("ゲームを開始できませんでした");
                 break;
