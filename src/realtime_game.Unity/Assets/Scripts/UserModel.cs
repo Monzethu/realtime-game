@@ -9,33 +9,9 @@ using System;
 
 public class UserModel : BaseModel
 {
-    // ===== Singleton =====
-    private static UserModel instance;
-    public static UserModel Instance => instance;
+    private int userId;// 登録ユーザーID
 
-    // ===== PlayerPrefs Key =====
-    private const string USER_ID_KEY = "USER_ID";
-
-    // ===== 登録ユーザーID =====
-    private int userId;
-    public int UserId => userId;
-
-    private void Awake()
-    {
-        // Singleton 保証
-        if (instance != null)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        instance = this;
-        DontDestroyOnLoad(gameObject);
-    }
-
-    // =========================
     // ユーザー登録
-    // =========================
     public async UniTask<bool> RegistUserAsync(string name)
     {
         var channel = GrpcChannelx.ForAddress(ServerURL);
@@ -43,12 +19,7 @@ public class UserModel : BaseModel
 
         try
         {
-            userId = await client.RegistUserAsync(name);
-            Debug.Log($"User registered. UserId = {userId}");
-
-            // ★ 登録成功したら保存
-            SaveUserData();
-
+            userId = await client.RegistUserAsync(name); // OK
             return true;
         }
         catch (RpcException e)
@@ -58,35 +29,7 @@ public class UserModel : BaseModel
         }
     }
 
-    // =========================
-    // ユーザーID保存
-    // =========================
-    public void SaveUserData()
-    {
-        PlayerPrefs.SetInt(USER_ID_KEY, userId);
-        PlayerPrefs.Save();
-        Debug.Log($"UserId saved: {userId}");
-    }
-
-    // =========================
-    // ユーザーID読込
-    // =========================
-    public bool LoadUserData()
-    {
-        if (!PlayerPrefs.HasKey(USER_ID_KEY))
-        {
-            Debug.Log("UserId not found");
-            return false;
-        }
-
-        userId = PlayerPrefs.GetInt(USER_ID_KEY);
-        Debug.Log($"UserId loaded: {userId}");
-        return true;
-    }
-
-    // =========================
     // ID からユーザー取得
-    // =========================
     public async UniTask<User> GetUserByIdAsync(int id)
     {
         var channel = GrpcChannelx.ForAddress(ServerURL);
@@ -103,9 +46,7 @@ public class UserModel : BaseModel
         }
     }
 
-    // =========================
     // 全ユーザー取得
-    // =========================
     public async UniTask<User[]> GetAllUsersAsync()
     {
         var channel = GrpcChannelx.ForAddress(ServerURL);
@@ -122,9 +63,7 @@ public class UserModel : BaseModel
         }
     }
 
-    // =========================
     // ユーザー名更新
-    // =========================
     public async UniTask<bool> UpdateUserNameAsync(int id, string newName)
     {
         var channel = GrpcChannelx.ForAddress(ServerURL);
@@ -140,14 +79,4 @@ public class UserModel : BaseModel
             return false;
         }
     }
-
-    // =========================
-    // ユーザーIDを直接セット（InputID用）
-    // =========================
-    public void SetUserId(int id)
-    {
-        userId = id;
-        Debug.Log($"UserId manually set: {userId}");
-    }
-
 }
