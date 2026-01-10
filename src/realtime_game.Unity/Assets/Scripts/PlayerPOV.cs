@@ -12,20 +12,24 @@ public class PlayerPOV : MonoBehaviour
     // 演算用変数
     private float rotationX = 0f;       // 縦方向の回転角度（首の回転）
 
-    // 毎フレーム実行される
+    private bool isLocalPlayer;
+
+    public void SetLocal(bool isLocal)
+    {
+        isLocalPlayer = isLocal;
+    }
+
     void Update()
     {
-        // マウス入力の取得
-        float mouseX = Input.GetAxis("Mouse X") * sensitivity;  // 横のマウス移動量を取得し、感度で調整
-        //Debug.Log(mouseX);
-        float mouseY = Input.GetAxis("Mouse Y") * sensitivity;  // 縦のマウス移動量を取得し、感度で調整
+        if (!isLocalPlayer) return;
 
-        // Player（体）の回転（左右）
-        transform.Rotate(0, mouseX, 0);   // プレイヤー（体）の左右の回転をマウスX方向の入力に合わせて行う
+        float mouseX = Input.GetAxis("Mouse X") * sensitivity;
+        float mouseY = Input.GetAxis("Mouse Y") * sensitivity;
 
-        // Neck（首）の回転（上下）
-        rotationX -= mouseY; // マウスY方向の入力によって縦方向の回転を更新
-        rotationX = Mathf.Clamp(rotationX, minVertical, maxVertical);   // 回転角度を指定された範囲に制限
-        neck.localRotation = Quaternion.Euler(rotationX, 0, 0);         // 首の回転を設定。縦方向のみ回転させる
+        transform.Rotate(0, mouseX, 0);
+
+        rotationX -= mouseY;
+        rotationX = Mathf.Clamp(rotationX, minVertical, maxVertical);
+        neck.localRotation = Quaternion.Euler(rotationX, 0, 0);
     }
 }

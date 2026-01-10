@@ -14,7 +14,7 @@ public class Shooting : MonoBehaviour
     private Transform bulletsParent;
     private Transform cameraTransform;
 
-    [SerializeField] private RoomModel roomModel;
+    private RoomModel roomModel;
 
     private void Awake()
     {
@@ -29,8 +29,23 @@ public class Shooting : MonoBehaviour
 
     public void SetRoomModel(RoomModel model)
     {
+        // 二重登録防止
+        if (roomModel != null)
+        {
+            roomModel.OnBulletReceived -= OnOtherPlayerShoot;
+        }
+
         roomModel = model;
         roomModel.OnBulletReceived += OnOtherPlayerShoot;
+    }
+
+    private void OnDestroy()
+    {
+        // 破棄時に必ず解除
+        if (roomModel != null)
+        {
+            roomModel.OnBulletReceived -= OnOtherPlayerShoot;
+        }
     }
 
     private void Update()
@@ -43,7 +58,6 @@ public class Shooting : MonoBehaviour
             {
                 bulletAmount--;
                 shotInterval = 0f;
-
                 ShootLocal();
             }
         }
@@ -54,9 +68,8 @@ public class Shooting : MonoBehaviour
         }
     }
 
-
     /// <summary>
-    /// 自分の弾をローカルで生成して、MagicOnion で同期
+    /// 自分の弾をローカル生成 → サーバーに通知
     /// </summary>
     private void ShootLocal()
     {
@@ -71,19 +84,15 @@ public class Shooting : MonoBehaviour
         );
         Vector3 velocity = cameraTransform.forward * shotSpeed;
 
-        // ローカル弾は常に生成（待機中の試し打ち可能）
-        GameObject bullet = Instantiate(bulletPrefab, spawnPos, rot, bulletsParent);
-        Rigidbody rb = bullet.GetComponent<Rigidbody>();
-        if (rb != null) rb.linearVelocity = velocity;
-        Destroy(bullet, 3f);
+        // 自分の弾はローカルで生成
+        SpawnBullet(spawnPos, rot, velocity);
 
-        // ルームに入ってたら同期
+        // 参加中なら同期
         if (roomModel != null && roomModel.IsJoined)
         {
             roomModel.ShootAsync(spawnPos, rot, velocity).Forget();
         }
     }
-
 
     /// <summary>
     /// 他プレイヤーの弾を受信して生成
@@ -92,9 +101,14 @@ public class Shooting : MonoBehaviour
     {
         if (roomModel == null) return;
 
-        // 自分の弾は生成しない
+        // ★ 重要：自分の弾は無視
         if (shooterId == roomModel.ConnectionId) return;
 
+        SpawnBullet(pos, rot, velocity);
+    }
+
+    private void SpawnBullet(Vector3 pos, Quaternion rot, Vector3 velocity)
+    {
         if (bulletsParent == null) return;
 
         GameObject bullet = Instantiate(bulletPrefab, pos, rot, bulletsParent);
