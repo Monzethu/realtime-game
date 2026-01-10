@@ -15,16 +15,14 @@ public class UserModel : BaseModel
 
     // ===== PlayerPrefs Key =====
     private const string USER_ID_KEY = "USER_ID";
-    private const string USER_NAME_KEY = "USER_NAME";
 
-    // ===== 登録ユーザー情報 =====
+    // ===== 登録ユーザーID =====
     private int userId;
-    private string userName;
     public int UserId => userId;
-    public string UserName => userName;
 
     private void Awake()
     {
+        // Singleton 保証
         if (instance != null)
         {
             Destroy(gameObject);
@@ -38,18 +36,19 @@ public class UserModel : BaseModel
     // =========================
     // ユーザー登録
     // =========================
-    public async UniTask<bool> RegistUserAsync(string name, string password)
+    public async UniTask<bool> RegistUserAsync(string name)
     {
         var channel = GrpcChannelx.ForAddress(ServerURL);
         var client = MagicOnionClient.Create<IUserService>(channel);
 
         try
         {
-            userId = await client.RegistUserAsync(name, password);
-            userName = name;
+            userId = await client.RegistUserAsync(name);
             Debug.Log($"User registered. UserId = {userId}");
 
+            // ★ 登録成功したら保存
             SaveUserData();
+
             return true;
         }
         catch (RpcException e)
@@ -60,54 +59,28 @@ public class UserModel : BaseModel
     }
 
     // =========================
-    // ログイン
-    // =========================
-    public async UniTask<bool> LoginUserAsync(string name, string password)
-    {
-        var channel = GrpcChannelx.ForAddress(ServerURL);
-        var client = MagicOnionClient.Create<IUserService>(channel);
-
-        try
-        {
-            var user = await client.LoginUserAsync(name, password);
-            userId = user.Id;
-            userName = user.Name;
-
-            SaveUserData();
-            return true;
-        }
-        catch (RpcException e)
-        {
-            Debug.LogError(e);
-            return false;
-        }
-    }
-
-    // =========================
-    // ユーザー情報保存
+    // ユーザーID保存
     // =========================
     public void SaveUserData()
     {
         PlayerPrefs.SetInt(USER_ID_KEY, userId);
-        PlayerPrefs.SetString(USER_NAME_KEY, userName);
         PlayerPrefs.Save();
-        Debug.Log($"User data saved: {userId}, {userName}");
+        Debug.Log($"UserId saved: {userId}");
     }
 
     // =========================
-    // ユーザー情報読み込み
+    // ユーザーID読込
     // =========================
     public bool LoadUserData()
     {
-        if (!PlayerPrefs.HasKey(USER_ID_KEY) || !PlayerPrefs.HasKey(USER_NAME_KEY))
+        if (!PlayerPrefs.HasKey(USER_ID_KEY))
         {
-            Debug.Log("User data not found");
+            Debug.Log("UserId not found");
             return false;
         }
 
         userId = PlayerPrefs.GetInt(USER_ID_KEY);
-        userName = PlayerPrefs.GetString(USER_NAME_KEY);
-        Debug.Log($"User data loaded: {userId}, {userName}");
+        Debug.Log($"UserId loaded: {userId}");
         return true;
     }
 
@@ -159,28 +132,22 @@ public class UserModel : BaseModel
 
         try
         {
-            bool result = await client.UpdateUserNameAsync(id, newName);
-            if (result && id == userId)
-            {
-                userName = newName;
-                SaveUserData();
-            }
-            return result;
+            return await client.UpdateUserNameAsync(id, newName);
         }
-        catch (Exception e)
+        catch (RpcException e)
         {
-            Debug.LogError($"RegistUserAsync Error: {e}");
+            Debug.LogError(e);
             return false;
         }
     }
 
     // =========================
-    // ユーザーIDを手動セット
+    // ユーザーIDを直接セット（InputID用）
     // =========================
-    public void SetUserId(int id, string name = "")
+    public void SetUserId(int id)
     {
         userId = id;
-        if (!string.IsNullOrEmpty(name)) userName = name;
-        Debug.Log($"UserId manually set: {userId}, Name: {userName}");
+        Debug.Log($"UserId manually set: {userId}");
     }
+
 }

@@ -89,9 +89,7 @@ public class GameDirector : MonoBehaviour
 
         //接続
         Debug.Log("ConnectAsync 開始");
-        LoadingManager.Show();
         await roomModel.ConnectAsync();
-        LoadingManager.Hide();
         Debug.Log("ConnectAsync 完了");
 
         // ボタン登録
@@ -171,29 +169,33 @@ public class GameDirector : MonoBehaviour
 
         myUserId = int.Parse(userIdInput.text);
 
-        LoadingManager.Show();
 
+        Debug.Log("JoinRoom 呼ばれた: " + roomNameInput.text);
         try
         {
-            // ユーザー情報取得
+            // ユーザー情報を取得
             myself = await userModel.GetUserByIdAsync(myUserId);
+        }
+        catch (Exception e)
+        {
+            Debug.Log("RegistUser failed");
+            Debug.LogException(e);
+        }
 
-            // 入室
+        // 入室
+        try
+        {
+            Debug.Log("JoinAsync 開始");
             await roomModel.JoinAsync(roomNameInput.text, myUserId);
-
+            Debug.Log("JoinAsync 完了");
             isJoin = true;
         }
         catch (Exception e)
         {
-            Debug.Log("Join失敗");
+            Debug.Log("JoinAsync 失敗");
             Debug.LogException(e);
         }
-        finally
-        {
-            LoadingManager.Hide();
-        }
     }
-
 
     // Leave ボタン
     private void OnLeaveButtonPressed()
@@ -212,12 +214,8 @@ public class GameDirector : MonoBehaviour
     private async void OnStartClicked()
     {
         if (!isJoin) return;
-
-        LoadingManager.Show();
         await roomModel.StartGameAsync();
-        LoadingManager.Hide();
     }
-
 
     // サーバーからゲーム開始通知を受け取った
     private void OnStartGameReceived()
@@ -275,8 +273,7 @@ public class GameDirector : MonoBehaviour
     // 退室処理
     public async void LeaveRoom()
     {
-        LoadingManager.Show();
-
+        // 自分以外のオブジェクトを削除
         foreach (Guid connectionId in characterList.Keys.ToArray())
         {
             Destroy(characterList[connectionId]);
@@ -285,11 +282,9 @@ public class GameDirector : MonoBehaviour
 
         isJoin = false;
 
+        // 退室
         await roomModel.LeaveAsync();
-
-        LoadingManager.Hide();
     }
-
 
     // ユーザーが退室した時の処理
     private void OnLeftUser(Guid connectionId)

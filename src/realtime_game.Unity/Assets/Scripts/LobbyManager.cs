@@ -44,7 +44,7 @@ public class LobbyManager : MonoBehaviour
         Debug.Log("LobbyManager Start 呼ばれた");
 
         roomModel = GetComponent<RoomModel>();
-        userModel = UserModel.Instance;
+        userModel = GetComponent<UserModel>();
 
         // 自分のPlayerは常に生成（射撃場）
         SpawnMyCharacter();
@@ -56,11 +56,8 @@ public class LobbyManager : MonoBehaviour
         roomModel.OnStartGameReceived += OnStartGameReceived;
         roomModel.OnStartGameError += OnStartGameError;
 
-
         // 接続
-        LoadingManager.Show();   // ← ここに追加
         await roomModel.ConnectAsync();
-        LoadingManager.Hide();   // ← ここに追加
 
         // ボタン
         joinButton.onClick.AddListener(OnJoinClicked);
@@ -123,6 +120,7 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
+
     // =========================
     // Join / Leave
     // =========================
@@ -143,9 +141,6 @@ public class LobbyManager : MonoBehaviour
 
         ShowMessage("ルームに参加しました");
     }
-
-
-
 
     private async void OnLeaveClicked()
     {
@@ -173,18 +168,7 @@ public class LobbyManager : MonoBehaviour
         if (user.ConnectionId == roomModel.ConnectionId)
         {
             myJoinedUser = user;
-
-            if (user.JoinOrder == 0)
-            {
-                startButton.interactable = true;
-                ShowMessage("あなたはホストです");
-            }
-            else
-            {
-                startButton.interactable = false;
-                ShowMessage("ホストの開始を待っています");
-            }
-
+            startButton.interactable = user.JoinOrder == 0;
             return;
         }
 
@@ -196,7 +180,6 @@ public class LobbyManager : MonoBehaviour
 
         otherCharacters[user.ConnectionId] = other;
     }
-
 
     private void OnLeftUser(Guid connectionId)
     {
@@ -219,11 +202,8 @@ public class LobbyManager : MonoBehaviour
     private async void OnStartClicked()
     {
         if (!isJoined) return;
-        if (myJoinedUser == null) return;
-
         await roomModel.StartGameAsync();
     }
-
 
     private void OnReadyStatusChanged(Guid connectionId, bool isReady)
     {
@@ -237,22 +217,8 @@ public class LobbyManager : MonoBehaviour
 
     private void OnStartGameError(string errorCode)
     {
-        switch (errorCode)
-        {
-            case "NOT_ALL_READY":
-                ShowMessage("全員の準備が終わっていません");
-                break;
-
-            case "NOT_HOST":
-                ShowMessage("ホストしか開始できません");
-                break;
-
-            default:
-                ShowMessage("ゲームを開始できませんでした");
-                break;
-        }
+        ShowMessage(errorCode);
     }
-
 
     // =========================
     // Cursor

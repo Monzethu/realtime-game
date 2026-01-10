@@ -5,60 +5,47 @@ using Cysharp.Threading.Tasks;
 
 public class TitleController : MonoBehaviour
 {
-    [SerializeField] private InputField inputName;
-    [SerializeField] private InputField inputPassword;
-    [SerializeField] private Text errorText;
+    [SerializeField] private InputField inputUserId;
     [SerializeField] private string nextSceneName = "LobbyScene";
 
     private bool isProcessing;
-
-    private void Awake()
-    {
-        errorText.gameObject.SetActive(false);
-    }
 
     public async void OnStartClicked()
     {
         if (isProcessing) return;
         isProcessing = true;
 
-        // 毎回リセット
-        errorText.gameObject.SetActive(false);
+        var userModel = UserModel.Instance;
 
-        string name = inputName.text.Trim();
-        string password = inputPassword.text;
-
-        if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(password))
+        // すでに保存済みならそれを使う
+        if (userModel.LoadUserData())
         {
-            errorText.text = "ユーザー名とパスワードを入力してください";
-            errorText.gameObject.SetActive(true);
-            isProcessing = false;
+            SceneManager.LoadScene(nextSceneName);
             return;
         }
 
-        var userModel = UserModel.Instance;
+        // InputID が入っているならそれを使う（デバッグ用）
+        if (!string.IsNullOrEmpty(inputUserId.text)
+            && int.TryParse(inputUserId.text, out int inputId))
+        {
+            userModel.SetUserId(inputId);
+            userModel.SaveUserData();
+            SceneManager.LoadScene(nextSceneName);
+            return;
+        }
 
-        LoadingManager.Show();
-        bool success = await userModel.LoginUserAsync(name, password);
-        LoadingManager.Hide();
+        // 完全新規ユーザー登録
+        bool success = await userModel.RegistUserAsync("Player");
 
         if (success)
         {
+            userModel.SaveUserData();
             SceneManager.LoadScene(nextSceneName);
         }
         else
         {
-            errorText.text = "ユーザー名またはパスワードが違います";
-            errorText.gameObject.SetActive(true);
+            Debug.LogError("ユーザー登録失敗");
             isProcessing = false;
         }
-    }
-
-
-    public void OnNewUserClicked()
-    {
-        LoadingManager.Show();
-        SceneManager.LoadScene("CreateUserScene");
-        LoadingManager.Hide();
     }
 }
