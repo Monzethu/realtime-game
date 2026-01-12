@@ -70,11 +70,6 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     //　入室
     public async UniTask JoinAsync(string roomName, int userId)
     {
-        if (roomHub == null)
-        {
-            await ConnectAsync();
-        }
-
         JoinedUser[] users = await roomHub.JoinAsync(roomName, userId);
 
         IsJoined = true;
@@ -87,7 +82,6 @@ public class RoomModel : BaseModel, IRoomHubReceiver
             }
         }
     }
-
 
     //　入室通知 (IRoomHubReceiverインタフェースの実装)
     public void OnJoin(JoinedUser user)
