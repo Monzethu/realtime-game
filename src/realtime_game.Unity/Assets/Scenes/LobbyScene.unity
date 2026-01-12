@@ -175,13 +175,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characterPrefab: {fileID: 6442372535343119135, guid: 02f82ccd91d4d3a4eae01dad553075f0, type: 3}
-  messageText: {fileID: 881129749}
   roomNameInput: {fileID: 768550460}
   userIdInput: {fileID: 1169973076}
   joinButton: {fileID: 1654212872}
   leaveButton: {fileID: 2035207304}
   readyButton: {fileID: 814672179}
   startButton: {fileID: 1902752864}
+  messageText: {fileID: 881129749}
 --- !u!4 &2336085
 Transform:
   m_ObjectHideFlags: 0
@@ -1415,6 +1415,37 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 103}
   m_SizeDelta: {x: 260, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &918380636
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 918380637}
+  m_Layer: 0
+  m_Name: Wall
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &918380637
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 918380636}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -32.524857, y: 2.5, z: -27.1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1002618456
 GameObject:
   m_ObjectHideFlags: 0
@@ -3190,6 +3221,7 @@ SceneRoots:
   m_Roots:
   - {fileID: 1006487480}
   - {fileID: 1350549090}
+  - {fileID: 918380637}
   - {fileID: 654805508}
   - {fileID: 400693551}
   - {fileID: 129744949}
