@@ -1,18 +1,22 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.LowLevel;
 
 public class GameController : MonoBehaviour
 {
-    // LobbySceneで新規生成したPlayerをBattleSceneで再利用
-
     public static GameController Instance { get; private set; }
 
     [Header("Player")]
     [SerializeField] private GameObject playerPrefab;
 
+    [Header("Battle")]
+    [SerializeField] private GameObject bulletPrefab;
+    [SerializeField] private Transform bulletsParent;
+
     [Header("Game Rule")]
     [SerializeField] private float matchTime = 30f;
+
+    [Header("Spawn")]
+    [SerializeField] private Vector3[] spawnPoints;
 
     [Header("UI")]
     [SerializeField] private GameObject resultPanel;
@@ -20,24 +24,17 @@ public class GameController : MonoBehaviour
     private float timer;
     private bool isGameRunning;
 
-    // プレイヤー管理
     public Dictionary<string, GameObject> players = new Dictionary<string, GameObject>();
 
-    void Awake()
+    private void Awake()
     {
-        // Singleton
         if (Instance == null)
-        {
             Instance = this;
-        }
         else
-        {
             Destroy(gameObject);
-            return;
-        }
     }
 
-    void Start()
+    private void Start()
     {
         timer = matchTime;
         isGameRunning = true;
@@ -45,11 +42,10 @@ public class GameController : MonoBehaviour
         if (resultPanel != null)
             resultPanel.SetActive(false);
 
-        // ★ 既存Playerを探して登録（Lobby → Battle 対応）
         RegisterExistingPlayer();
     }
 
-    void Update()
+    private void Update()
     {
         if (!isGameRunning) return;
 
@@ -60,40 +56,53 @@ public class GameController : MonoBehaviour
         }
     }
 
-    // ★ Lobby用：Playerがいなければ生成
-    public GameObject SpawnPlayerIfNeeded(string playerId)
+    /// <summary>
+    /// ★ これが無かった
+    /// </summary>
+    public Vector3 GetSpawnPosition()
     {
-        if (players.ContainsKey(playerId))
+        if (spawnPoints != null && spawnPoints.Length > 0)
         {
-            return players[playerId];
+            int index = Random.Range(0, spawnPoints.Length);
+            return spawnPoints[index];
         }
 
-        GameObject player = FindObjectOfType<PlayerRoot>()?.gameObject;
-
-        if (player == null)
-        {
-            player = Instantiate(
-                playerPrefab,
-                GetSpawnPosition(),
-                Quaternion.identity
-            );
-        }
-
-        players[playerId] = player;
-        return player;
+        // 保険（スポーンポイント未設定時）
+        return new Vector3(
+            Random.Range(-5f, 5f),
+            0f,
+            Random.Range(-5f, 5f)
+        );
     }
 
-    // ★ BattleScene用：既存Playerを登録するだけ
     private void RegisterExistingPlayer()
     {
         var player = FindObjectOfType<PlayerRoot>();
-        if (player != null)
+        if (player == null)
         {
-            players["LocalPlayer"] = player.gameObject;
+            //Debug.LogError("[GameController] PlayerRoot not found");
+            return;
         }
+
+        players["LocalPlayer"] = player.gameObject;
+
+        var shooting = player.GetComponentInChildren<Shooting>();
+        if (shooting == null)
+        {
+            //Debug.LogError("[GameController] Shooting not found");
+            return;
+        }
+
+        var roomModel = GameDirector.Instance?.GetComponent<RoomModel>();
+        if (roomModel == null)
+        {
+            //Debug.LogError("[GameController] RoomModel not found");
+            return;
+        }
+
+        shooting.Initialize(roomModel, bulletPrefab, bulletsParent);
     }
 
-    // 試合終了
     private void EndGame()
     {
         isGameRunning = false;
@@ -101,15 +110,5 @@ public class GameController : MonoBehaviour
 
         if (resultPanel != null)
             resultPanel.SetActive(true);
-    }
-
-    // スポーン位置
-    public Vector3 GetSpawnPosition()
-    {
-        return new Vector3(
-            Random.Range(-5f, 5f),
-            0f,
-            Random.Range(-5f, 5f)
-        );
     }
 }
