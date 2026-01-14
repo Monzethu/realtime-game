@@ -1,93 +1,153 @@
-using DG.Tweening;
-using Shared.Interfaces.StreamingHubs;
 using System;
+using System.Collections;
 using UnityEngine;
 
-// Player‚ÌˆÚ“®
 public class PlayerContoroller : MonoBehaviour
 {
+    // ===== ï¿½lï¿½bï¿½gï¿½ï¿½ï¿½[ï¿½NID =====
+    public Guid ConnectionId { get; private set; }
+
+    public void SetConnectionId(Guid id)
+    {
+        ConnectionId = id;
+    }
+
+    // ===== ï¿½Ú“ï¿½ =====
     Rigidbody rb;
-    
-    [SerializeField] private float moveSpeed = 5f;           // ˆÚ“®‘¬“x
-    float jumpPower=5f;    // ƒWƒƒƒ“ƒv—Í
 
-    bool isGround;        // ’n–Ê‚É’…’n‚µ‚Ä‚¢‚é‚©‚Ç‚¤‚©‚Ìƒtƒ‰ƒO•Ï”
+    [SerializeField] private float moveSpeed = 5f;
+    [SerializeField] private float jumpPower = 5f;
 
+    bool isGround;
     [SerializeField] public Camera cam;
-    
-    FloatingJoystick joystick;
 
-    // HP‚ÌÀ‘•
+    private FloatingJoystick joystick;
+
+    // ===== HP =====
+    [SerializeField] private int maxHp = 50;
+    private int hp;
+    private bool isDead;
 
     private void Awake()
     {
-        isGround = false;
+        rb = GetComponent<Rigidbody>();
+        hp = maxHp;
+        isDead = false;
     }
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    private void Start()
     {
-        rb= GetComponent<Rigidbody>();
-
-        // ƒWƒ‡ƒCƒXƒeƒBƒbƒN‚Ìî•ñ‚ğæ“¾
-        joystick = GameObject.Find("Floating Joystick").GetComponent<FloatingJoystick> ();
-
+        joystick = GameObject.Find("Floating Joystick")?.GetComponent<FloatingJoystick>();
     }
 
-    // Update is called once per frame
-    void Update()
+    private void Update()
     {
+        if (isDead) return;
+
         Move();
         Jump();
     }
 
-    // ˆÚ“®
     private void Move()
     {
-        // WASD / ƒL[ƒ{[ƒh“ü—Í
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
 
-        // ƒWƒ‡ƒCƒXƒeƒBƒbƒN“ü—Í
         float jh = joystick != null ? joystick.Horizontal : 0f;
         float jv = joystick != null ? joystick.Vertical : 0f;
 
-        // “ü—Í‚ğ‘«‚·
         float moveX = (h + jh) * moveSpeed * Time.deltaTime;
         float moveZ = (v + jv) * moveSpeed * Time.deltaTime;
 
-        // ÀÛ‚ÌˆÚ“®
         transform.Translate(moveX, 0, moveZ);
     }
 
-
-    void Jump()
+    private void Jump()
     {
-        if (isGround)
+        if (isGround && Input.GetKeyDown(KeyCode.Space))
         {
-            if (Input.GetKeyDown(KeyCode.Space))
-            {
-                rb.AddForce(Vector3.up*jumpPower, ForceMode.Impulse);
-            }
+            rb.AddForce(Vector3.up * jumpPower, ForceMode.Impulse);
         }
     }
 
-    // ’n–Ê‚É‚Â‚¢‚½‚çiFloor‚É‚Â‚¢‚Ä‚½‚çj
     private void OnCollisionEnter(Collision collision)
     {
         if (collision.gameObject.CompareTag("floor"))
-        {
-            isGround=true;
-        }
+            isGround = true;
     }
 
-    // ’n–Ê‚©‚ç‚Í‚È‚ê‚½‚çiFloor‚©‚ç‚Í‚È‚ê‚½‚çj
     private void OnCollisionExit(Collision collision)
     {
         if (collision.gameObject.CompareTag("floor"))
+            isGround = false;
+    }
+
+    // ===== ï¿½ï¿½eï¿½ï¿½ï¿½ï¿½ =====
+    private void OnTriggerEnter(Collider other)
+    {
+        if (isDead) return;
+
+        var bullet = other.GetComponent<BulletManager>();
+        if (bullet == null) return;
+
+        // ï¿½ï¿½ï¿½ï¿½ï¿½Ì’eï¿½Í–ï¿½ï¿½ï¿½
+        if (bullet.ShooterId == ConnectionId)
         {
-            isGround=false;
+            Debug.Log("ï¿½ï¿½ï¿½ï¿½ï¿½Ì’eï¿½É“ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½iï¿½ï¿½ï¿½ï¿½ï¿½j");
+            return;
+        }
+
+        Debug.Log(
+            $"ï¿½ï¿½eï¿½I ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½l:{bullet.ShooterId} ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½l:{ConnectionId}"
+        );
+
+        // ï¿½ï¿½ ï¿½_ï¿½ï¿½ï¿½[ï¿½W
+        hp -= 2;
+        Debug.Log($"HP: {hp}");
+
+        // ï¿½ï¿½ ï¿½eï¿½Í‘ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½iï¿½ï¿½ï¿½dï¿½vï¿½j
+        Destroy(bullet.gameObject);
+
+        if (hp <= 0)
+        {
+            Die();
         }
     }
-}
 
+    private void Die()
+    {
+        if (isDead) return;
+
+        isDead = true;
+        Debug.Log($"{ConnectionId} died");
+
+        // ï¿½ï¿½ï¿½ï¿½ï¿½~
+        enabled = false;
+        if (cam != null) cam.enabled = false;
+
+        StartCoroutine(RespawnAfterDelay(3f));
+    }
+
+    private IEnumerator RespawnAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        hp = maxHp;
+        isDead = false;
+
+        // ï¿½Xï¿½|ï¿½[ï¿½ï¿½ï¿½Ê’u
+        if (GameDirector.Instance != null)
+            transform.position = GameDirector.Instance.GetSpawnPosition();
+        else
+            transform.position = Vector3.zero;
+
+        rb.linearVelocity = Vector3.zero;
+        transform.rotation = Quaternion.identity;
+
+        // ï¿½ï¿½ï¿½ì•œï¿½A
+        enabled = true;
+        if (cam != null) cam.enabled = true;
+
+        Debug.Log("ï¿½ï¿½ï¿½Xï¿½|ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+    }
+}

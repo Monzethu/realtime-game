@@ -9,39 +9,33 @@ public class BulletManager : MonoBehaviour
 
     // ===== 設定 =====
     [SerializeField] private float lifeTime = 3f;
+    [SerializeField] private float ignoreTime = 0.1f; // ★ 追加：生成直後は無視
 
+    private float timer;
     private bool isDestroyed;
 
-    void Start()
+    private void Start()
     {
-        // 一定時間で消える（念のため）
         Destroy(gameObject, lifeTime);
     }
 
-    private void OnCollisionEnter(Collision collision)
+    void Update()
+    {
+        timer += Time.deltaTime;
+    }
+
+    private void OnTriggerEnter(Collider other)
     {
         if (isDestroyed) return;
 
-        // Damageable を探す（Player想定）
-        var damageable = collision.gameObject.GetComponentInParent<Damageable>();
-        if (damageable == null) return;
+        // ★ 生成直後は誰にも当たらない
+        if (timer < ignoreTime) return;
 
-        // 自分が撃った弾が自分に当たった → 無視
-        var player = collision.gameObject.GetComponentInParent<PlayerIdentity>();
-        if (player != null && player.ConnectionId == ShooterId) return;
+        var player = other.GetComponentInParent<PlayerContoroller>();
+        if (player == null) return;
 
+        // Player 側で処理するので、ここでは消すだけ
         isDestroyed = true;
-
-        // ★ HPを減らす
-        damageable.TakeDamage(10);
-
         Destroy(gameObject);
-    }
-
-
-    void NotifyHit(Guid hitPlayerId)
-    {
-        // 後で RoomModel / RoomHub 経由でサーバーに送る
-        Debug.Log($"Hit! Bullet:{BulletId} Shooter:{ShooterId} Target:{hitPlayerId}");
     }
 }

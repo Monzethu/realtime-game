@@ -1,65 +1,66 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class GameController : MonoBehaviour
 {
-    // LobbySceneで新規生成したPlayerをBattleSceneで再生成
-    // もしくはゲームスタートした時点でユーザー登録
-
     public static GameController Instance { get; private set; }
 
     [Header("Player")]
     [SerializeField] private GameObject playerPrefab;
 
-    [Header("Game Rule")]
-    [SerializeField] private float matchTime = 30f;
+    // Guidで管理
+    public Dictionary<Guid, GameObject> players = new Dictionary<Guid, GameObject>();
 
-    [Header("UI")]
-    [SerializeField] private GameObject resultPanel; // Inspectorで紐付け
+    public RoomModel RoomModel { get; private set; }
 
-    private float timer;
-    private bool isGameRunning;
-
-    // プレイヤー管理（必要に応じてBattleSceneで既存Playerを引き継ぐ）
-    public Dictionary<string, GameObject> players = new Dictionary<string, GameObject>();
-
-    void Start()
+    private void Awake()
     {
-        timer = matchTime;
-        isGameRunning = true;
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
 
-        if (resultPanel != null)
-            resultPanel.SetActive(false);
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+
+        RoomModel = new GameObject("RoomModel").AddComponent<RoomModel>();
+        DontDestroyOnLoad(RoomModel.gameObject);
     }
 
-    void Update()
+    public void CreatePlayer(Guid connectionId)
     {
-        if (!isGameRunning) return;
+        if (players.ContainsKey(connectionId) && players[connectionId] != null)
+            return;
 
-        timer -= Time.deltaTime;
-        if (timer <= 0f)
+        GameObject player = Instantiate(playerPrefab, GetSpawnPosition(), Quaternion.identity);
+        DontDestroyOnLoad(player);
+
+        var pc = player.GetComponent<PlayerContoroller>();
+        if (pc != null)
         {
-            EndGame();
+            pc.SetConnectionId(connectionId);
+        }
+
+        players[connectionId] = player;
+        Debug.Log($"Player {connectionId} created.");
+    }
+
+    public void EnsurePlayerExists(Guid connectionId)
+    {
+        if (!players.ContainsKey(connectionId) || players[connectionId] == null)
+        {
+            CreatePlayer(connectionId);
         }
     }
 
-    // 試合終了
-    private void EndGame()
-    {
-        isGameRunning = false;
-        Debug.Log("Match End");
-
-        if (resultPanel != null)
-            resultPanel.SetActive(true);
-    }
-
-    // スポーン位置（固定座標 or ランダム座標）
     public Vector3 GetSpawnPosition()
     {
         return new Vector3(
-            Random.Range(-5f, 5f),
-            0f,
-            Random.Range(-5f, 5f)
+            UnityEngine.Random.Range(-5f, 5f),
+            1f,
+            UnityEngine.Random.Range(-5f, 5f)
         );
     }
 }

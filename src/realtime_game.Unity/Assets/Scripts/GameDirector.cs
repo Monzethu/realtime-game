@@ -3,40 +3,45 @@ using realtime_game.Shared.Models.Entities;
 using Shared.Interfaces.StreamingHubs;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
+using System.Linq;
 
-// ƒƒr[Œ“ËŒ‚êiPlayer‚Í€‚È‚È‚¢Bj
 public class GameDirector : MonoBehaviour
 {
     [SerializeField] GameObject characterPrefab;
-    GameObject character;
+    public GameObject character;
     public Dictionary<Guid, GameObject> characterList = new Dictionary<Guid, GameObject>();
 
-    RoomModel roomModel;
-    UserModel userModel;
+    public RoomModel roomModel;
+    public UserModel userModel;
 
-    int myUserId;
+    public int myUserId;
     User myself;
 
+    [Header("Lobby UI")]
     [SerializeField] InputField roomNameInput;
     [SerializeField] InputField userIdInput;
     [SerializeField] Button joinButton;
     [SerializeField] Button leaveButton;
-    [SerializeField] Button readyButton; // ’Ç‰Á
-    [SerializeField] Button startButton; // ’Ç‰Á
+    [SerializeField] Button readyButton;
+    [SerializeField] Button startButton;
+
+    [SerializeField] private GameObject bulletPrefab;
+
+    [Header("Message UI")]
+    [SerializeField] Text messageText;
 
     bool isJoin;
-
     float timer;
-
-    private bool isShowMouseCursor;
-
+    bool isShowMouseCursor;
     JoinedUser myJoinedUser;
 
-    [SerializeField] Text messageText;// •\¦‚·‚éƒƒbƒZ[ƒW
+    // --- å…¬é–‹ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ ---
+    public int MyUserId => myUserId;
+    public RoomModel Room => roomModel;
+    public GameObject Character => character;
 
     public static GameDirector Instance { get; private set; }
 
@@ -45,15 +50,20 @@ public class GameDirector : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject); // LobbyScene ¨ BattleScene ‚Å•Û
+            DontDestroyOnLoad(gameObject);
         }
         else
         {
-            Destroy(gameObject); // “ñd¶¬–h~
+            Destroy(gameObject);
+            return;
         }
 
         HideMouseCursor();
         isShowMouseCursor = false;
+
+        // ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸UIã¯æœ€åˆéè¡¨ç¤º
+        if (messageText != null)
+            messageText.gameObject.SetActive(false);
     }
 
     async void Start()
@@ -61,297 +71,226 @@ public class GameDirector : MonoBehaviour
         roomModel = GetComponent<RoomModel>();
         userModel = GetComponent<UserModel>();
 
-        character = Instantiate(characterPrefab);
-        //Debug.Log(character.transform.position);
+        InitPlayerIfNeeded();
 
-        var shooting = character.GetComponentInChildren<Shooting>();
-        if (shooting != null)
-        {
-            shooting.SetRoomModel(roomModel);
-        }
-
-        isJoin = false;
-        timer = 0;
-
-        //ƒ†[ƒU[‚ª“üº‚µ‚½‚ÉOnJoinedUserƒƒ\ƒbƒh‚ğÀs‚·‚é‚æ‚¤Aƒ‚ƒfƒ‹‚É“o˜^‚µ‚Ä‚¨‚­
-        roomModel.OnJoinedUser += this.OnJoinedUser;
-        // ƒ†[ƒU[‚ª‘Şº‚µ‚½‚ÉOnLeftUserƒƒ\ƒbƒh‚ğÀs‚Å‚«‚é‚æ‚¤Aƒ‚ƒfƒ‹‚É“o˜^‚µ‚Ä‚¨‚­
-        roomModel.OnLeftUser += this.OnLeftUser;
-        // ƒ†[ƒU[‚ªˆÚ“®E‰ñ“]‚µ‚½‚Æ‚«‚ÉOnMoveCharacterƒƒ\ƒbƒh‚ğÀs‚Å‚«‚é‚æ‚¤Aƒ‚ƒfƒ‹‚É“o˜^‚µ‚Ä‚¨‚­
+        // ã‚¤ãƒ™ãƒ³ãƒˆç™»éŒ²
+        roomModel.OnJoinedUser += OnJoinedUser;
+        roomModel.OnLeftUser += OnLeftUser;
         roomModel.OnMoveCharacter += OnMoveCharacter;
-
+        roomModel.OnBulletReceived += OnBulletReceived;
+        roomModel.OnStartGameReceived += OnStartGameReceived;
+        roomModel.OnPlayerReadyStatusChangedReceived += OnPlayerReadyStatusChangedReceived;
         roomModel.OnStartGameError += OnStartGameError;
 
-        // ƒT[ƒo[‚©‚ç‚ÌƒQ[ƒ€ŠJn’Ê’mƒCƒxƒ“ƒg‚ğ“o˜^
-        roomModel.OnStartGameReceived += OnStartGameReceived;
-        // ƒvƒŒƒCƒ„[Readyó‘Ô•ÏX’Ê’mƒCƒxƒ“ƒg
-        roomModel.OnPlayerReadyStatusChangedReceived += OnPlayerReadyStatusChangedReceived;
+        // LobbyScene ã§ã¯æ¥ç¶šãŒã¾ã ãªã‚‰ Connect
+        if (!roomModel.IsJoined)
+        {
+            Debug.Log("ConnectAsync é–‹å§‹");
+            await roomModel.ConnectAsync();
+            Debug.Log("ConnectAsync å®Œäº†");
+        }
 
-        //Ú‘±
-        Debug.Log("ConnectAsync ŠJn");
-        await roomModel.ConnectAsync();
-        Debug.Log("ConnectAsync Š®—¹");
-
-        // ƒ{ƒ^ƒ““o˜^
-        joinButton.onClick.AddListener(OnJoinButtonPressed);
-        leaveButton.onClick.AddListener(OnLeaveButtonPressed);
-        readyButton.onClick.AddListener(OnReadyClicked); // Readyƒ{ƒ^ƒ““o˜^
-        startButton.onClick.AddListener(OnStartClicked); // Startƒ{ƒ^ƒ““o˜^
+        // ãƒœã‚¿ãƒ³ç™»éŒ²
+        if (joinButton != null) joinButton.onClick.AddListener(OnJoinButtonPressed);
+        if (leaveButton != null) leaveButton.onClick.AddListener(OnLeaveButtonPressed);
+        if (readyButton != null) readyButton.onClick.AddListener(OnReadyClicked);
+        if (startButton != null) startButton.onClick.AddListener(OnStartClicked);
     }
 
     async void Update()
     {
         timer += Time.deltaTime;
-
-        if (timer >= 0.1f)
+        if (timer >= 0.1f && isJoin && character != null)
         {
-            if (isJoin)
-            {
-                timer = 0;
-
-                // ©•ª‚ÌˆÊ’u‚Æ‰ñ“]‚ğƒT[ƒo[‚É‘—M
-                if (character != null)
-                {
-                    await roomModel.MoveAsync(character.transform.position, character.transform.rotation);
-                }
-            }
+            timer = 0;
+            await roomModel.MoveAsync(character.transform.position, character.transform.rotation);
         }
 
-        // Ecape‚ğ‰Ÿ‚µ‚½‚Æ‚«
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             isShowMouseCursor = !isShowMouseCursor;
-            if (isShowMouseCursor)
-            {
-                ShowMouseCursor();
-                Debug.Log("ƒJ[ƒ\ƒ‹‚ğ•\¦");
-            }
-            else
-            {
-                HideMouseCursor();
-                Debug.Log("ƒJ[ƒ\ƒ‹‚ğ”ñ•\¦");
-            }
+            if (isShowMouseCursor) ShowMouseCursor();
+            else HideMouseCursor();
         }
     }
 
-    /// <summary>
-    /// ƒJ[ƒ\ƒ‹”ñ•\¦
-    /// </summary>
     public void HideMouseCursor()
     {
-        // ƒJ[ƒ\ƒ‹‚ğ‰æ–Ê’†‰›‚ÉƒƒbƒN‚·‚é
         Cursor.lockState = CursorLockMode.Locked;
-        // ƒJ[ƒ\ƒ‹”ñ•\¦
         Cursor.visible = false;
     }
 
-    /// <summary>
-    /// ƒJ[ƒ\ƒ‹•\¦
-    /// </summary>
     public void ShowMouseCursor()
     {
-        // ƒJ[ƒ\ƒ‹‚ÌƒƒbƒN‚ğ‰ğœ
         Cursor.lockState = CursorLockMode.None;
-        // ƒJ[ƒ\ƒ‹•\¦
         Cursor.visible = true;
     }
 
-    // Join ƒ{ƒ^ƒ“
     async void OnJoinButtonPressed()
     {
-        Debug.Log("Joinƒ{ƒ^ƒ“‚ª‰Ÿ‚³‚ê‚½I");
-
-        if (string.IsNullOrWhiteSpace(roomNameInput.text))
-        {
-            Debug.Log("ƒ‹[ƒ€–¼‚ª‹ó‚Å‚·");
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(roomNameInput.text)) return;
 
         myUserId = int.Parse(userIdInput.text);
 
-
-        Debug.Log("JoinRoom ŒÄ‚Î‚ê‚½: " + roomNameInput.text);
         try
         {
-            // ƒ†[ƒU[î•ñ‚ğæ“¾
             myself = await userModel.GetUserByIdAsync(myUserId);
         }
         catch (Exception e)
         {
-            Debug.Log("RegistUser failed");
             Debug.LogException(e);
         }
 
-        // “üº
         try
         {
-            Debug.Log("JoinAsync ŠJn");
-            await roomModel.JoinAsync(roomNameInput.text, myUserId);
-            Debug.Log("JoinAsync Š®—¹");
+            await roomModel.JoinAsync(roomNameInput.text); // â˜…ã“ã“é‡è¦
             isJoin = true;
         }
         catch (Exception e)
         {
-            Debug.Log("JoinAsync ¸”s");
             Debug.LogException(e);
         }
     }
 
-    // Leave ƒ{ƒ^ƒ“
-    private void OnLeaveButtonPressed()
-    {
-        LeaveRoom();
-    }
 
-    // Readyƒ{ƒ^ƒ“‰Ÿ‰º
-    private async void OnReadyClicked()
-    {
-        if (!isJoin) return;
-        await roomModel.SetReadyAsync(true);
-    }
+    private void OnLeaveButtonPressed() => LeaveRoom();
+    async void OnReadyClicked() { if (!isJoin) return; await roomModel.SetReadyAsync(true); }
+    async void OnStartClicked() { if (!isJoin) return; await roomModel.StartGameAsync(); }
 
-    // Startƒ{ƒ^ƒ“‰Ÿ‰º
-    private async void OnStartClicked()
-    {
-        if (!isJoin) return;
-        await roomModel.StartGameAsync();
-    }
-
-    // ƒT[ƒo[‚©‚çƒQ[ƒ€ŠJn’Ê’m‚ğó‚¯æ‚Á‚½
     private void OnStartGameReceived()
     {
-        Debug.Log("ƒQ[ƒ€ƒXƒ^[ƒgIƒV[ƒ“‘JˆÚ‚µ‚Ü‚·");
-        UnityEngine.SceneManagement.SceneManager.LoadScene("ButtleScene");
+        Debug.Log("ã‚²ãƒ¼ãƒ ã‚¹ã‚¿ãƒ¼ãƒˆï¼UIã‚’éè¡¨ç¤ºã«ã—ã¦ãƒãƒˆãƒ«é–‹å§‹");
+
+        // ã‚²ãƒ¼ãƒ é–‹å§‹æ™‚ã«InputFieldã¨ãƒœã‚¿ãƒ³ã‚’ã¾ã¨ã‚ã¦éè¡¨ç¤º
+        if (roomNameInput) roomNameInput.gameObject.SetActive(false);
+        if (userIdInput) userIdInput.gameObject.SetActive(false);
+        if (joinButton) joinButton.gameObject.SetActive(false);
+        if (leaveButton) leaveButton.gameObject.SetActive(false);
+        if (readyButton) readyButton.gameObject.SetActive(false);
+        if (startButton) startButton.gameObject.SetActive(false);
+
+        // ã‚«ãƒ¡ãƒ©æœ‰åŠ¹åŒ–
+        var pc = character.GetComponent<PlayerContoroller>();
+        if (pc != null && pc.cam != null)
+            pc.cam.enabled = true;
     }
 
-    // ƒT[ƒo[‚©‚çReadyó‘Ô’Ê’m‚ğó‚¯æ‚Á‚½
     private void OnPlayerReadyStatusChangedReceived(Guid connectionId, bool isReady)
     {
         Debug.Log($"Player {connectionId} Ready: {isReady}");
-        // TODO: UI‚É”½‰f
     }
 
-    // ƒ†[ƒU[‚ª“üº‚µ‚½‚Ìˆ—
-    private void OnJoinedUser(JoinedUser user)
+    public void OnJoinedUser(JoinedUser user)
     {
-        Debug.Log("===== ƒ†[ƒU[“üº =====");
-        Debug.Log($"UserId={user.UserData.Id}, JoinOrder={user.JoinOrder}");
-        Debug.Log("=======================");
-
-        // š ©•ª©g‚¾‚Á‚½ê‡
         if (user.UserData.Id == myUserId)
         {
             myJoinedUser = user;
+            if (startButton) startButton.interactable = myJoinedUser.JoinOrder == 0;
 
-            // ƒzƒXƒg”»’èiJoinOrder == 0j
+            // ãƒ«ãƒ¼ãƒ ã«å…¥ã£ãŸç›´å¾Œã«ãƒ›ã‚¹ãƒˆã‹å¾…æ©Ÿã‹ã‚’UIã§è¡¨ç¤º
             if (myJoinedUser.JoinOrder == 0)
-            {
-                startButton.interactable = true;
-                ShowMessage("‚ ‚È‚½‚ÍƒzƒXƒg‚Å‚·");
-            }
+                ShowMessage("ã‚ãªãŸã¯ãƒ›ã‚¹ãƒˆã§ã™ï¼");
             else
-            {
-                startButton.interactable = false;
-                ShowMessage("ƒzƒXƒg‚ÌŠJn‚ğ‘Ò‚Á‚Ä‚¢‚Ü‚·");
-            }
+                ShowMessage("ãƒ›ã‚¹ãƒˆã®é–‹å§‹ã‚’å¾…ã£ã¦ã„ã¾ã™â€¦");
 
             return;
         }
 
-        // ===== ˆÈ‰º‚Í‘¼l—pi¡‚Ü‚Å‚Ìˆ—j=====
-        if (characterList.ContainsKey(user.ConnectionId))
-            return;
+        if (characterList.ContainsKey(user.ConnectionId)) return;
 
-        GameObject characterObject = Instantiate(characterPrefab);
-        characterObject.GetComponent<PlayerContoroller>().cam.depth = -10;
-        characterObject.GetComponent<PlayerContoroller>().enabled = false;
-        characterObject.GetComponent<PlayerPOV>().enabled = false;
-
-        characterList[user.ConnectionId] = characterObject;
+        GameObject other = Instantiate(characterPrefab);
+        other.GetComponent<PlayerContoroller>().cam.depth = -10;
+        other.GetComponent<PlayerContoroller>().enabled = false;
+        other.GetComponent<PlayerPOV>().enabled = false;
+        characterList[user.ConnectionId] = other;
     }
 
-    // ‘Şºˆ—
     public async void LeaveRoom()
     {
-        // ©•ªˆÈŠO‚ÌƒIƒuƒWƒFƒNƒg‚ğíœ
-        foreach (Guid connectionId in characterList.Keys.ToArray())
+        foreach (Guid id in characterList.Keys.ToArray())
         {
-            Destroy(characterList[connectionId]);
-            characterList.Remove(connectionId);
+            Destroy(characterList[id]);
+            characterList.Remove(id);
         }
 
         isJoin = false;
-
-        // ‘Şº
         await roomModel.LeaveAsync();
     }
 
-    // ƒ†[ƒU[‚ª‘Şº‚µ‚½‚Ìˆ—
     private void OnLeftUser(Guid connectionId)
     {
-        // ‚¢‚È‚¢l‚Í‘Şº‚Å‚«‚È‚¢
-        if (!characterList.ContainsKey(connectionId))
-        {
-            return;
-        }
-
-        Destroy(characterList[connectionId]); // ‘ÎÛ‚ÌƒIƒuƒWƒFƒNƒg‚ğíœ
-        characterList.Remove(connectionId); // ƒŠƒXƒg‚©‚ç‘ÎÛ‚Ìƒf[ƒ^‚ğíœ
+        if (!characterList.ContainsKey(connectionId)) return;
+        Destroy(characterList[connectionId]);
+        characterList.Remove(connectionId);
     }
 
-    // ©•ªˆÈŠO‚Ìƒ†[ƒU[‚ÌˆÚ“®‚ğ”½‰f
-    void OnMoveCharacter(Guid connectionId, Vector3 pos, Quaternion rotation)
+    public void OnMoveCharacter(Guid connectionId, Vector3 pos, Quaternion rot)
     {
-        // ‚¢‚È‚¢l‚ÍˆÚ“®‚Å‚«‚È‚¢
-        if (!characterList.ContainsKey(connectionId))
-        {
-            return;
-        }
-
+        if (!characterList.ContainsKey(connectionId)) return;
         var obj = characterList[connectionId].transform;
-
-        // Šù‘¶Tween‚ğ~‚ß‚é
         obj.DOKill();
-
-        // ‰ñ“]”½‰f
-        obj.rotation = rotation;
-
-        // DOTween ‚ÅŠŠ‚ç‚©‚ÉˆÚ“®
+        obj.rotation = rot;
         obj.DOMove(pos, 0.1f).SetEase(Ease.Linear);
     }
 
-    // ƒƒbƒZ[ƒWŠÖŒW
+    public void InitPlayerIfNeeded()
+    {
+        if (character == null)
+        {
+            character = Instantiate(characterPrefab);
+            character.SetActive(true);
+
+            var shooting = character.GetComponentInChildren<Shooting>();
+            if (shooting != null && roomModel != null)
+                shooting.SetRoomModel(roomModel);
+
+            var pc = character.GetComponent<PlayerContoroller>();
+            if (pc != null && pc.cam != null)
+                pc.cam.enabled = true;
+        }
+    }
+
+    void OnBulletReceived(Guid shooterId, Vector3 pos, Quaternion rot, Vector3 vel)
+    {
+        if (bulletPrefab == null)
+        {
+            Debug.LogError("Bullet prefab is not assigned");
+            return;
+        }
+
+        var bullet = Instantiate(bulletPrefab, pos, rot);
+        var bm = bullet.GetComponent<BulletManager>();
+        bm.ShooterId = shooterId;
+    }
+
     void OnStartGameError(string errorCode)
     {
         switch (errorCode)
         {
-            case "NOT_HOST":
-                ShowMessage("‚ ‚È‚½‚ÍƒzƒXƒg‚Å‚Í‚ ‚è‚Ü‚¹‚ñI");
-                break;
-
-            case "NOT_ALL_READY":
-                ShowMessage("‘Sˆõ‚Ì€”õ‚ªI‚í‚Á‚Ä‚¢‚Ü‚¹‚ñ");
-                break;
-
-            default:
-                ShowMessage("ŠJn‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½");
-                break;
+            case "NOT_HOST": ShowMessage("ã‚ãªãŸã¯ãƒ›ã‚¹ãƒˆã§ã¯ã‚ã‚Šã¾ã›ã‚“ï¼"); break;
+            case "NOT_ALL_READY": ShowMessage("å…¨å“¡ã®æº–å‚™ãŒçµ‚ã‚ã£ã¦ã„ã¾ã›ã‚“"); break;
+            default: ShowMessage("é–‹å§‹ã§ãã¾ã›ã‚“ã§ã—ãŸ"); break;
         }
     }
 
     void ShowMessage(string message)
     {
+        if (messageText == null) return;
         messageText.text = message;
         messageText.gameObject.SetActive(true);
-
-        // 3•bŒã‚ÉÁ‚·
         CancelInvoke(nameof(HideMessage));
         Invoke(nameof(HideMessage), 3f);
     }
 
-    void HideMessage()
+    public void HideMessage()
     {
-        messageText.gameObject.SetActive(false);
+        if (messageText != null) messageText.gameObject.SetActive(false);
+    }
+
+    public Vector3 GetSpawnPosition()
+    {
+        // é©å½“ãªä½ç½®ã«ã‚¹ãƒãƒ¼ãƒ³ï¼ˆå¾Œã§ãƒ©ãƒ³ãƒ€ãƒ ã‚„æŒ‡å®šåº§æ¨™ã«å¤‰æ›´å¯ï¼‰
+        return new Vector3(UnityEngine.Random.Range(-5f, 5f), 1f, UnityEngine.Random.Range(-5f, 5f));
     }
 
 }
