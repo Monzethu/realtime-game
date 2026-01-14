@@ -175,17 +175,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characterPrefab: {fileID: 6442372535343119135, guid: 02f82ccd91d4d3a4eae01dad553075f0, type: 3}
-  character: {fileID: 0}
-  roomModel: {fileID: 0}
-  userModel: {fileID: 0}
-  myUserId: 0
   roomNameInput: {fileID: 768550460}
   userIdInput: {fileID: 1169973076}
   joinButton: {fileID: 1654212872}
   leaveButton: {fileID: 2035207304}
   readyButton: {fileID: 814672179}
   startButton: {fileID: 1902752864}
-  bulletPrefab: {fileID: 5960272796312929047, guid: ab12e466d95dc994c86255a66630f281, type: 3}
   messageText: {fileID: 881129749}
 --- !u!4 &2336085
 Transform:
@@ -696,51 +691,6 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &531014573
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 531014575}
-  - component: {fileID: 531014574}
-  m_Layer: 0
-  m_Name: GameController
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &531014574
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 531014573}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b5a07d03de35bd9459ed0a4c6aaf8f00, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  playerPrefab: {fileID: 6442372535343119135, guid: 02f82ccd91d4d3a4eae01dad553075f0, type: 3}
---- !u!4 &531014575
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 531014573}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 352.5155, y: 257.17703, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3281,4 +3231,3 @@ SceneRoots:
   - {fileID: 1550962114}
   - {fileID: 2336085}
   - {fileID: 1541169456}
-  - {fileID: 531014575}

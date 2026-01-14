@@ -1,17 +1,37 @@
 ﻿using MagicOnion;
 using realtime_game.Shared.Interfaces.StreamingHubs;
-using Shared.Interfaces.StreamingHubs;
 using System;
 using System.Threading.Tasks;
 using UnityEngine;
-
-public interface IRoomHub : IStreamingHub<IRoomHub, IRoomHubReceiver>
+namespace Shared.Interfaces.StreamingHubs
 {
-    Task<JoinedUser[]> JoinAsync(string roomName);
-    Task LeaveAsync();
-    Task<Guid> GetConnectionId();
-    Task MoveAsync(Vector3 pos, Quaternion rot);
-    Task ShootAsync(Vector3 pos, Quaternion rot, Vector3 velocity);
-    Task SetReadyAsync(bool ready);
-    Task StartGameAsync();
+    /// <summary>
+    /// クライアントから呼び出す処理を実装するクラス用インターフェース
+    /// </summary>
+    public interface IRoomHub : IStreamingHub<IRoomHub, IRoomHubReceiver>
+    {
+        // [サーバーに実装]
+        // [クライアントから呼び出す]
+
+        // ユーザー入室
+        Task<JoinedUser[]> JoinAsync(string roomName, int userId);
+
+        // ユーザー退室
+        Task LeaveAsync();
+
+        // 接続ID取得
+        Task<Guid> GetConnectionId();
+
+        // 位置・回転をサーバーに送信する
+        Task MoveAsync(Vector3 pos, Quaternion rot);
+
+        // 撃った情報を送る
+        Task ShootAsync(Vector3 pos, Quaternion rot, Vector3 velocity);
+
+
+        Task SetReadyAsync(bool ready);
+
+        // ホスト用
+        Task StartGameAsync(); 
+    }
 }

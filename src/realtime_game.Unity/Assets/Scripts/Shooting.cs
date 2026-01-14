@@ -71,24 +71,18 @@ public class Shooting : MonoBehaviour
         );
         Vector3 velocity = cameraTransform.forward * shotSpeed;
 
+        // ローカル弾は常に生成（待機中の試し打ち可能）
         GameObject bullet = Instantiate(bulletPrefab, spawnPos, rot, bulletsParent);
-
-        // ★ ここが超重要：自分の ShooterId を必ず入れる
-        var bm = bullet.GetComponent<BulletManager>();
-        if (bm != null)
-            bm.ShooterId = roomModel.ConnectionId;
-
         Rigidbody rb = bullet.GetComponent<Rigidbody>();
         if (rb != null) rb.linearVelocity = velocity;
-
         Destroy(bullet, 3f);
 
+        // ルームに入ってたら同期
         if (roomModel != null && roomModel.IsJoined)
         {
             roomModel.ShootAsync(spawnPos, rot, velocity).Forget();
         }
     }
-
 
 
     /// <summary>
