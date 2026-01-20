@@ -9,137 +9,105 @@ using Grpc.Core;
 
 namespace Server.StreamingHubs
 {
-    public class RoomHub(RoomContextRepository roomContextRepository) : StreamingHubBase<IRoomHub, IRoomHubReceiver>, IRoomHub
+    public class RoomHub : StreamingHubBase<IRoomHub, IRoomHubReceiver>, IRoomHub
     {
-        private RoomContextRepository roomContextRepos;
+        private readonly RoomContextRepository roomContextRepos;
         private RoomContext roomContext;
 
-        public async Task<JoinedUser[]> JoinAsync(string roomName, int userId)
+        public RoomHub(RoomContextRepository roomContextRepository)
         {
-            lock (roomContextRepos)
-            {
-                this.roomContext = roomContextRepos.GetContext(roomName);
-                if (this.roomContext == null)
-                {
-                    this.roomContext = roomContextRepos.CreateContext(roomName);
-                    Console.WriteLine("ルームが生成されました");
-                }
-            }
+            roomContextRepos = roomContextRepository;
+        }
 
-            // グループに参加
-            this.roomContext.Group.Add(this.ConnectionId, Client);
+        public async Task<JoinedUser[]> JoinAsync(string roomName, string token)
+        {
+            roomContext =
+                roomContextRepos.GetContext(roomName)
+                ?? roomContextRepos.CreateContext(roomName);
 
-            // DBからユーザー情報取得
-            GameDbContext context = new GameDbContext();
-            User user = context.Users.First(u => u.Id == userId);
+            roomContext.Group.Add(ConnectionId, Client);
 
-            // JoinOrder 決定
-            int joinOrder = this.roomContext.RoomUserDataList.Count;
+            using var context = new GameDbContext();
+            var user = context.Users.FirstOrDefault(u => u.Token == token);
 
-            // JoinedUser 作成
+            if (user == null)
+                throw new RpcException(
+                    new Status(StatusCode.PermissionDenied, "INVALID_TOKEN")
+                );
+
+            int joinOrder = roomContext.RoomUserDataList.Count;
+
             var joinedUser = new JoinedUser
             {
-                ConnectionId = this.ConnectionId,
+                ConnectionId = ConnectionId,
                 UserData = user,
                 JoinOrder = joinOrder
             };
 
-            // RoomUserData 作成して登録
-            var roomUserData = new RoomUserData
+            roomContext.RoomUserDataList[ConnectionId] = new RoomUserData
             {
                 JoinedUser = joinedUser,
                 IsReady = false
             };
 
-            this.roomContext.RoomUserDataList[this.ConnectionId] = roomUserData;
+            roomContext.Group.Except([ConnectionId]).OnJoin(joinedUser);
 
-            Console.WriteLine(
-                $"Join: UserId={user.Id}, Name={user.Name}, JoinOrder={joinOrder}"
-            );
-
-            // 自分以外に入室通知
-            this.roomContext.Group
-                .Except([this.ConnectionId])
-                .OnJoin(joinedUser);
-
-            // 現在の参加者一覧を返す
-            return this.roomContext.RoomUserDataList
-                .Select(x => x.Value.JoinedUser)
+            return roomContext.RoomUserDataList.Values
+                .Select(x => x.JoinedUser)
                 .ToArray();
         }
 
-
-
-        // 接続時の処理
-        protected override ValueTask OnConnected()
+        protected override ValueTask OnDisconnected()
         {
-            roomContextRepos = roomContextRepository;
+            LeaveAsync();
             return default;
         }
 
-        // 切断時の処理
-        protected override ValueTask OnDisconnected()
-        {
-            if (roomContext != null)
-            {
-                LeaveAsync();
-            }
-            return CompletedTask;
-        }
-
-
-        // 接続ID取得
         public Task<Guid> GetConnectionId()
         {
-            return Task.FromResult<Guid>(this.ConnectionId);
+            return Task.FromResult(ConnectionId);
         }
 
-
-        // ルームから退出
         public Task LeaveAsync()
         {
-            //　退室したことを全メンバーに通知
-            this.roomContext.Group.All.OnLeave(this.ConnectionId);
-            Console.WriteLine($"ルームから退出しました。ID：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Id}名前：{roomContext.RoomUserDataList[ConnectionId].JoinedUser.UserData.Name}");
+            if (roomContext == null) return Task.CompletedTask;
 
-            //　ルーム内のメンバーから自分を削除
-            this.roomContext.Group.Remove(this.ConnectionId);
+            if (!roomContext.RoomUserDataList.TryGetValue(ConnectionId, out var userData))
+                return Task.CompletedTask;
 
-            //　ルームデータから退室したユーザーを削除
-            this.roomContext.RoomUserDataList.Remove(this.ConnectionId);
+            roomContext.Group.All.OnLeave(ConnectionId);
 
-            // ルーム内にユーザーが一人もいなければルーム削除
-            if (this.roomContext.RoomUserDataList.Count == 0)
+            roomContext.Group.Remove(ConnectionId);
+            roomContext.RoomUserDataList.Remove(ConnectionId);
+
+            if (roomContext.RoomUserDataList.Count == 0)
             {
-                roomContextRepos.RemoveContext(this.roomContext.Name);
-                Console.WriteLine("ルームが削除されました");
+                roomContextRepos.RemoveContext(roomContext.Name);
             }
 
             return Task.CompletedTask;
         }
 
-        // 移動
         public Task MoveAsync(Vector3 pos, Quaternion rot)
         {
-            // 位置情報を記録
-            //this.roomContext.RoomUserDataList[this.ConnectionId].pos = pos;
+            if (roomContext == null) return Task.CompletedTask;
 
-            var userData = this.roomContext.RoomUserDataList[this.ConnectionId];
+            var userData = roomContext.RoomUserDataList[ConnectionId];
             userData.Position = pos;
             userData.Rotation = rot;
 
-            // 自分以外の全メンバーに通知
-            this.roomContext.Group.Except([this.ConnectionId])
-                .OnMove(this.ConnectionId, pos, rot);
+            roomContext.Group
+                .Except([ConnectionId])
+                .OnMove(ConnectionId, pos, rot);
 
             return Task.CompletedTask;
         }
 
         public Task ShootAsync(Vector3 pos, Quaternion rot, Vector3 velocity)
         {
-            this.roomContext.Group
-                .Except(this.ConnectionId)
-                .OnShoot(this.ConnectionId, pos, rot, velocity);
+            roomContext?.Group
+                .Except(ConnectionId)
+                .OnShoot(ConnectionId, pos, rot, velocity);
 
             return Task.CompletedTask;
         }
@@ -149,8 +117,6 @@ namespace Server.StreamingHubs
             if (roomContext == null) return Task.CompletedTask;
 
             roomContext.RoomUserDataList[ConnectionId].IsReady = ready;
-
-            // 必要に応じて全員にReady状態を通知する
             roomContext.Group.All.OnPlayerReadyStatusChanged(ConnectionId, ready);
 
             return Task.CompletedTask;
@@ -158,9 +124,8 @@ namespace Server.StreamingHubs
 
         public Task StartGameAsync()
         {
-            var myData = roomContext.RoomUserDataList[this.ConnectionId];
+            var myData = roomContext.RoomUserDataList[ConnectionId];
 
-            // ホストチェック（JoinOrder 0 = ホスト）
             if (myData.JoinedUser.JoinOrder != 0)
             {
                 throw new RpcException(
@@ -168,7 +133,6 @@ namespace Server.StreamingHubs
                 );
             }
 
-            // 全員Readyチェック
             if (!roomContext.RoomUserDataList.Values.All(u => u.IsReady))
             {
                 throw new RpcException(
@@ -176,9 +140,7 @@ namespace Server.StreamingHubs
                 );
             }
 
-            // 全員にゲーム開始通知
             roomContext.Group.All.OnStartGame();
-
             return Task.CompletedTask;
         }
     }

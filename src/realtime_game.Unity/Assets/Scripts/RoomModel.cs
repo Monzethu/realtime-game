@@ -67,10 +67,11 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     }
 
     #region Join/Leave
-    //　入室
-    public async UniTask JoinAsync(string roomName, int userId)
+    // 入室（userId → token に変更）
+    public async UniTask JoinAsync(string roomName, string token)
     {
-        JoinedUser[] users = await roomHub.JoinAsync(roomName, userId);
+        // サーバー側 JoinAsync の定義が IUserService トークン対応である前提
+        JoinedUser[] users = await roomHub.JoinAsync(roomName, token);
 
         IsJoined = true;
 
@@ -83,13 +84,10 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         }
     }
 
-    //　入室通知 (IRoomHubReceiverインタフェースの実装)
+    // 入室通知 (IRoomHubReceiverインタフェースの実装)
     public void OnJoin(JoinedUser user)
     {
-        if (OnJoinedUser != null)
-        {
-            OnJoinedUser(user);
-        }
+        OnJoinedUser?.Invoke(user);
     }
 
     // 退室
@@ -100,15 +98,13 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         Debug.Log("退室完了");
     }
 
-    // 退室通知 (IRoomHubReceiverインタフェースの実装)
+    // 退室通知
     public void OnLeave(Guid connectionId)
     {
-        if (OnLeftUser != null)
-        {
-            OnLeftUser(connectionId);
-        }
+        OnLeftUser?.Invoke(connectionId);
     }
     #endregion
+
 
     #region Move/Shoot
     //位置・回転を送信する

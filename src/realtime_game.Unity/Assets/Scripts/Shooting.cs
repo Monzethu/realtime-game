@@ -43,7 +43,6 @@ public class Shooting : MonoBehaviour
             {
                 bulletAmount--;
                 shotInterval = 0f;
-
                 ShootLocal();
             }
         }
@@ -54,10 +53,6 @@ public class Shooting : MonoBehaviour
         }
     }
 
-
-    /// <summary>
-    /// 自分の弾をローカルで生成して、MagicOnion で同期
-    /// </summary>
     private void ShootLocal()
     {
         if (cameraTransform == null || bulletsParent == null)
@@ -69,37 +64,39 @@ public class Shooting : MonoBehaviour
             cameraTransform.eulerAngles.y,
             0f
         );
+
         Vector3 velocity = cameraTransform.forward * shotSpeed;
 
-        // ローカル弾は常に生成（待機中の試し打ち可能）
         GameObject bullet = Instantiate(bulletPrefab, spawnPos, rot, bulletsParent);
+
         Rigidbody rb = bullet.GetComponent<Rigidbody>();
-        if (rb != null) rb.linearVelocity = velocity;
+        if (rb != null)
+        {
+            rb.linearVelocity = velocity;
+        }
+
         Destroy(bullet, 3f);
 
-        // ルームに入ってたら同期
         if (roomModel != null && roomModel.IsJoined)
         {
             roomModel.ShootAsync(spawnPos, rot, velocity).Forget();
         }
     }
 
-
-    /// <summary>
-    /// 他プレイヤーの弾を受信して生成
-    /// </summary>
     private void OnOtherPlayerShoot(Guid shooterId, Vector3 pos, Quaternion rot, Vector3 velocity)
     {
         if (roomModel == null) return;
-
-        // 自分の弾は生成しない
         if (shooterId == roomModel.ConnectionId) return;
-
         if (bulletsParent == null) return;
 
         GameObject bullet = Instantiate(bulletPrefab, pos, rot, bulletsParent);
+
         Rigidbody rb = bullet.GetComponent<Rigidbody>();
-        if (rb != null) rb.linearVelocity = velocity;
+        if (rb != null)
+        {
+            rb.linearVelocity = velocity;
+        }
+
         Destroy(bullet, 3f);
     }
 }

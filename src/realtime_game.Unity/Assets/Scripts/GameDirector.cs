@@ -8,52 +8,35 @@ using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
 
-// ロビー兼射撃場（Playerは死なない。）
 public class GameDirector : MonoBehaviour
 {
     [SerializeField] GameObject characterPrefab;
-    GameObject character;
-    public Dictionary<Guid, GameObject> characterList = new Dictionary<Guid, GameObject>();
+
+    // 自分の Player
+    private GameObject myCharacter;
+
+    // 他人の Player
+    public Dictionary<Guid, GameObject> otherCharacters = new();
 
     RoomModel roomModel;
     UserModel userModel;
 
-    int myUserId;
-    User myself;
-
-    [SerializeField] InputField roomNameInput;
-    [SerializeField] InputField userIdInput;
-    [SerializeField] Button joinButton;
-    [SerializeField] Button leaveButton;
-    [SerializeField] Button readyButton; // 追加
-    [SerializeField] Button startButton; // 追加
-
     bool isJoin;
-
     float timer;
-
-    private bool isShowMouseCursor;
 
     JoinedUser myJoinedUser;
 
-    [SerializeField] Text messageText;// 表示するメッセージ
-
-    public static GameDirector Instance { get; private set; }
+    [Header("UI")]
+    [SerializeField] InputField roomNameInput;
+    [SerializeField] Button joinButton;
+    [SerializeField] Button leaveButton;
+    [SerializeField] Button readyButton;
+    [SerializeField] Button startButton;
 
     private void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject); // LobbyScene → BattleScene で保持
-        }
-        else
-        {
-            Destroy(gameObject); // 二重生成防止
-        }
-
-        HideMouseCursor();
-        isShowMouseCursor = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     async void Start()
@@ -61,297 +44,175 @@ public class GameDirector : MonoBehaviour
         roomModel = GetComponent<RoomModel>();
         userModel = GetComponent<UserModel>();
 
-        character = Instantiate(characterPrefab);
-        //Debug.Log(character.transform.position);
+        // ★ 自分用 Player を先に生成
+        myCharacter = Instantiate(characterPrefab);
 
-        var shooting = character.GetComponentInChildren<Shooting>();
+        // Shooting に RoomModel を渡す
+        var shooting = myCharacter.GetComponentInChildren<Shooting>();
         if (shooting != null)
         {
             shooting.SetRoomModel(roomModel);
         }
 
-        isJoin = false;
-        timer = 0;
+        if (string.IsNullOrEmpty(userModel.Token))
+        {
+            MessageManager.Instance.ShowMessage("ログイン情報がありません");
+            Debug.LogError("Token is null or empty");
+            return;
+        }
 
-        //ユーザーが入室した時にOnJoinedUserメソッドを実行するよう、モデルに登録しておく
-        roomModel.OnJoinedUser += this.OnJoinedUser;
-        // ユーザーが退室した時にOnLeftUserメソッドを実行できるよう、モデルに登録しておく
-        roomModel.OnLeftUser += this.OnLeftUser;
-        // ユーザーが移動・回転したときにOnMoveCharacterメソッドを実行できるよう、モデルに登録しておく
+        Debug.Log($"Game Start: UserId={userModel.UserId}, Token={userModel.Token}");
+
+        // イベント登録
+        roomModel.OnJoinedUser += OnJoinedUser;
+        roomModel.OnLeftUser += OnLeftUser;
         roomModel.OnMoveCharacter += OnMoveCharacter;
-
+        roomModel.OnStartGameReceived += OnStartGameReceived;
+        roomModel.OnPlayerReadyStatusChangedReceived += OnPlayerReadyStatusChangedReceived;
         roomModel.OnStartGameError += OnStartGameError;
 
-        // サーバーからのゲーム開始通知イベントを登録
-        roomModel.OnStartGameReceived += OnStartGameReceived;
-        // プレイヤーReady状態変更通知イベント
-        roomModel.OnPlayerReadyStatusChangedReceived += OnPlayerReadyStatusChangedReceived;
-
-        //接続
-        Debug.Log("ConnectAsync 開始");
         await roomModel.ConnectAsync();
-        Debug.Log("ConnectAsync 完了");
 
-        // ボタン登録
         joinButton.onClick.AddListener(OnJoinButtonPressed);
         leaveButton.onClick.AddListener(OnLeaveButtonPressed);
-        readyButton.onClick.AddListener(OnReadyClicked); // Readyボタン登録
-        startButton.onClick.AddListener(OnStartClicked); // Startボタン登録
+        readyButton.onClick.AddListener(OnReadyClicked);
+        startButton.onClick.AddListener(OnStartClicked);
+
+        isJoin = false;
+        timer = 0f;
     }
 
     async void Update()
     {
-        timer += Time.deltaTime;
+        if (!isJoin || myCharacter == null) return;
 
+        timer += Time.deltaTime;
         if (timer >= 0.1f)
         {
-            if (isJoin)
-            {
-                timer = 0;
-
-                // 自分の位置と回転をサーバーに送信
-                if (character != null)
-                {
-                    await roomModel.MoveAsync(character.transform.position, character.transform.rotation);
-                }
-            }
-        }
-
-        // Ecapeを押したとき
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            isShowMouseCursor = !isShowMouseCursor;
-            if (isShowMouseCursor)
-            {
-                ShowMouseCursor();
-                Debug.Log("カーソルを表示");
-            }
-            else
-            {
-                HideMouseCursor();
-                Debug.Log("カーソルを非表示");
-            }
+            timer = 0f;
+            await roomModel.MoveAsync(
+                myCharacter.transform.position,
+                myCharacter.transform.rotation
+            );
         }
     }
 
-    /// <summary>
-    /// カーソル非表示
-    /// </summary>
-    public void HideMouseCursor()
-    {
-        // カーソルを画面中央にロックする
-        Cursor.lockState = CursorLockMode.Locked;
-        // カーソル非表示
-        Cursor.visible = false;
-    }
+    // ======================
+    // Join / Leave
+    // ======================
 
-    /// <summary>
-    /// カーソル表示
-    /// </summary>
-    public void ShowMouseCursor()
-    {
-        // カーソルのロックを解除
-        Cursor.lockState = CursorLockMode.None;
-        // カーソル表示
-        Cursor.visible = true;
-    }
-
-    // Join ボタン
     async void OnJoinButtonPressed()
     {
-        Debug.Log("Joinボタンが押された！");
-
         if (string.IsNullOrWhiteSpace(roomNameInput.text))
         {
             Debug.Log("ルーム名が空です");
             return;
         }
 
-        myUserId = int.Parse(userIdInput.text);
-
-
-        Debug.Log("JoinRoom 呼ばれた: " + roomNameInput.text);
-        try
+        // ★ Token は使わない。UserName を渡す
+        if (userModel == null || userModel.UserId <= 0)
         {
-            // ユーザー情報を取得
-            myself = await userModel.GetUserByIdAsync(myUserId);
-        }
-        catch (Exception e)
-        {
-            Debug.Log("RegistUser failed");
-            Debug.LogException(e);
+            Debug.Log("ログインしていません");
+            return;
         }
 
-        // 入室
-        try
-        {
-            Debug.Log("JoinAsync 開始");
-            await roomModel.JoinAsync(roomNameInput.text, myUserId);
-            Debug.Log("JoinAsync 完了");
-            isJoin = true;
-        }
-        catch (Exception e)
-        {
-            Debug.Log("JoinAsync 失敗");
-            Debug.LogException(e);
-        }
+        await roomModel.JoinAsync(roomNameInput.text, userModel.UserName);
+        isJoin = true;
     }
 
-    // Leave ボタン
-    private void OnLeaveButtonPressed()
+    async void OnLeaveButtonPressed()
     {
-        LeaveRoom();
+        foreach (var obj in otherCharacters.Values)
+        {
+            Destroy(obj);
+        }
+        otherCharacters.Clear();
+
+        isJoin = false;
+        await roomModel.LeaveAsync();
     }
 
-    // Readyボタン押下
-    private async void OnReadyClicked()
+    // ======================
+    // Ready / Start
+    // ======================
+
+    async void OnReadyClicked()
     {
         if (!isJoin) return;
         await roomModel.SetReadyAsync(true);
     }
 
-    // Startボタン押下
-    private async void OnStartClicked()
+    async void OnStartClicked()
     {
         if (!isJoin) return;
         await roomModel.StartGameAsync();
     }
 
-    // サーバーからゲーム開始通知を受け取った
-    private void OnStartGameReceived()
+    void OnStartGameReceived()
     {
-        Debug.Log("ゲームスタート！シーン遷移します");
+        Debug.Log("ゲームスタート");
         UnityEngine.SceneManagement.SceneManager.LoadScene("ButtleScene");
     }
 
-    // サーバーからReady状態通知を受け取った
-    private void OnPlayerReadyStatusChangedReceived(Guid connectionId, bool isReady)
+    void OnPlayerReadyStatusChangedReceived(Guid id, bool ready)
     {
-        Debug.Log($"Player {connectionId} Ready: {isReady}");
-        // TODO: UIに反映
+        Debug.Log($"Player {id} Ready = {ready}");
     }
 
-    // ユーザーが入室した時の処理
-    private void OnJoinedUser(JoinedUser user)
-    {
-        Debug.Log("===== ユーザー入室 =====");
-        Debug.Log($"UserId={user.UserData.Id}, JoinOrder={user.JoinOrder}");
-        Debug.Log("=======================");
+    // ======================
+    // Room Events
+    // ======================
 
-        // ★ 自分自身だった場合
-        if (user.UserData.Id == myUserId)
+    void OnJoinedUser(JoinedUser user)
+    {
+        Debug.Log($"Join: {user.UserData.Name}, order={user.JoinOrder}");
+
+        // ★ 自分
+        if (user.UserData.Id == userModel.UserId)
         {
             myJoinedUser = user;
 
-            // ホスト判定（JoinOrder == 0）
-            if (myJoinedUser.JoinOrder == 0)
-            {
-                startButton.interactable = true;
-                ShowMessage("あなたはホストです");
-            }
-            else
-            {
-                startButton.interactable = false;
-                ShowMessage("ホストの開始を待っています");
-            }
+            // Host 判定
+            startButton.interactable = (user.JoinOrder == 0);
+
+            // 自分の Player を有効化
+            myCharacter.GetComponent<PlayerContoroller>().enabled = true;
+            myCharacter.GetComponent<PlayerPOV>().enabled = true;
 
             return;
         }
 
-        // ===== 以下は他人用（今までの処理）=====
-        if (characterList.ContainsKey(user.ConnectionId))
-            return;
+        // ★ 他人
+        if (otherCharacters.ContainsKey(user.ConnectionId)) return;
 
-        GameObject characterObject = Instantiate(characterPrefab);
-        characterObject.GetComponent<PlayerContoroller>().cam.depth = -10;
-        characterObject.GetComponent<PlayerContoroller>().enabled = false;
-        characterObject.GetComponent<PlayerPOV>().enabled = false;
+        GameObject other = Instantiate(characterPrefab);
 
-        characterList[user.ConnectionId] = characterObject;
+        other.GetComponent<PlayerContoroller>().enabled = false;
+        other.GetComponent<PlayerPOV>().enabled = false;
+
+        otherCharacters[user.ConnectionId] = other;
     }
 
-    // 退室処理
-    public async void LeaveRoom()
+    void OnLeftUser(Guid connectionId)
     {
-        // 自分以外のオブジェクトを削除
-        foreach (Guid connectionId in characterList.Keys.ToArray())
-        {
-            Destroy(characterList[connectionId]);
-            characterList.Remove(connectionId);
-        }
+        if (!otherCharacters.ContainsKey(connectionId)) return;
 
-        isJoin = false;
-
-        // 退室
-        await roomModel.LeaveAsync();
+        Destroy(otherCharacters[connectionId]);
+        otherCharacters.Remove(connectionId);
     }
 
-    // ユーザーが退室した時の処理
-    private void OnLeftUser(Guid connectionId)
+    void OnMoveCharacter(Guid connectionId, Vector3 pos, Quaternion rot)
     {
-        // いない人は退室できない
-        if (!characterList.ContainsKey(connectionId))
-        {
-            return;
-        }
+        if (!otherCharacters.ContainsKey(connectionId)) return;
 
-        Destroy(characterList[connectionId]); // 対象のオブジェクトを削除
-        characterList.Remove(connectionId); // リストから対象のデータを削除
+        var t = otherCharacters[connectionId].transform;
+        t.DOKill();
+        t.rotation = rot;
+        t.DOMove(pos, 0.1f).SetEase(Ease.Linear);
     }
 
-    // 自分以外のユーザーの移動を反映
-    void OnMoveCharacter(Guid connectionId, Vector3 pos, Quaternion rotation)
+    void OnStartGameError(string error)
     {
-        // いない人は移動できない
-        if (!characterList.ContainsKey(connectionId))
-        {
-            return;
-        }
-
-        var obj = characterList[connectionId].transform;
-
-        // 既存Tweenを止める
-        obj.DOKill();
-
-        // 回転反映
-        obj.rotation = rotation;
-
-        // DOTween で滑らかに移動
-        obj.DOMove(pos, 0.1f).SetEase(Ease.Linear);
+        Debug.Log($"StartGameError: {error}");
     }
-
-    // メッセージ関係
-    void OnStartGameError(string errorCode)
-    {
-        switch (errorCode)
-        {
-            case "NOT_HOST":
-                ShowMessage("あなたはホストではありません！");
-                break;
-
-            case "NOT_ALL_READY":
-                ShowMessage("全員の準備が終わっていません");
-                break;
-
-            default:
-                ShowMessage("開始できませんでした");
-                break;
-        }
-    }
-
-    void ShowMessage(string message)
-    {
-        messageText.text = message;
-        messageText.gameObject.SetActive(true);
-
-        // 3秒後に消す
-        CancelInvoke(nameof(HideMessage));
-        Invoke(nameof(HideMessage), 3f);
-    }
-
-    void HideMessage()
-    {
-        messageText.gameObject.SetActive(false);
-    }
-
 }
